@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "Trivinex Partners"
+version = "1.0.0"
+id = "artifacts/craftloop"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 5173
+
+[services.development]
+run = "pnpm --filter @workspace/craftloop run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/craftloop", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/craftloop/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "5173"
+BASE_PATH = "/"

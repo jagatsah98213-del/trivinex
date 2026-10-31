@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin/
+
+# High-value pages for crawlers
+Allow: /
+Allow: /about
+Allow: /services
+Allow: /portfolio
+Allow: /testimonials
+Allow: /careers
+Allow: /consultation
+Allow: /quote
+Allow: /privacy-policy
+
+Sitemap: https://trivinexpartners.com/sitemap.xml

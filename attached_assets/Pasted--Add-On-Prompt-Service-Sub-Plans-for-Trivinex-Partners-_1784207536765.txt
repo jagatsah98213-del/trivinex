@@ -1,0 +1,174 @@
+# Add-On Prompt: Service Sub-Plans for Trivinex Partners (existing site)
+
+> This is an **incremental feature addition** to the existing Trivinex Partners platform already built in Replit — not a rebuild. Paste this into the Replit Agent working on that same project. It adds specific, searchable sub-plans under each of the six services (e.g., under Video Editing: Reel Editing, Long-Form Editing, Wedding Editing), each with its own description, pricing type, and an optional "Hot"/"New"/"Popular" badge.
+
+---
+
+## 1. What's changing and why
+
+Right now each of the six services (Web Development, Video Editing, Photography & Videography, Graphic Design, Content Writing, SEO/Digital Marketing) is a single card on the Services page. Clients don't actually search for "web development" in the abstract — they search for things like "wedding video editing," "monthly SEO service," or "logo design." This add-on introduces a **`ServicePlan`** layer: 3–4 specific, real-world sub-offerings nested under each service, matching what people actually search for, each independently priced and badge-able (e.g., mark "Wedding Video Editing" as **Hot** and **New**).
+
+---
+
+## 2. Schema Changes (Prisma)
+
+Add these to the existing `schema.prisma`:
+
+```prisma
+enum PlanBadge {
+  NONE
+  HOT
+  NEW
+  POPULAR
+  BEST_VALUE
+}
+
+enum PricingType {
+  ONE_TIME
+  MONTHLY
+}
+
+model ServicePlan {
+  id            String        @id @default(cuid())
+  serviceId     String
+  service       Service       @relation(fields: [serviceId], references: [id])
+  name          String        // e.g. "Wedding Video Editing"
+  description   String
+  pricingType   PricingType   @default(ONE_TIME)
+  startingPrice String?       // flexible label, e.g. "Starting at $80" or "$150/mo"
+  badge         PlanBadge     @default(NONE)
+  isActive      Boolean       @default(true)
+  sortOrder     Int           @default(0)
+  createdAt     DateTime      @default(now())
+}
+```
+
+Update the existing `Service` model to add the reverse relation:
+
+```prisma
+model Service {
+  // ...existing fields stay the same...
+  plans ServicePlan[]
+}
+```
+
+Update `ClientInquiry` (and `Project`, if you want the plan to carry through to the assigned job) to optionally reference the specific plan the client picked, in addition to the broader service category they already select:
+
+```prisma
+model ClientInquiry {
+  // ...existing fields stay the same...
+  servicePlanId String?
+  servicePlan   ServicePlan? @relation(fields: [servicePlanId], references: [id])
+}
+
+model Project {
+  // ...existing fields stay the same...
+  servicePlanId String?
+  servicePlan   ServicePlan? @relation(fields: [servicePlanId], references: [id])
+}
+```
+
+Run a migration after adding this (`npx prisma migrate dev --name add_service_plans`).
+
+---
+
+## 3. Seed Data — Plans for All Six Services
+
+Seed these under their matching `Service` row. Use these as the initial, real-world-search-matched plan set (all editable later from the admin panel):
+
+### Web Development
+| Plan | Description | Pricing | Badge |
+|---|---|---|---|
+| Starter Website | A clean, professional 4–6 page site — ideal for small businesses needing an online presence fast | One-time | — |
+| Custom Web Development | Fully bespoke design and functionality — booking systems, dashboards, integrations, anything off-the-shelf can't do | One-time | Popular |
+| E-commerce Website | Full online store build with product catalog, cart, and checkout | One-time | — |
+| Monthly Website Management | Ongoing updates, content edits, security monitoring, and hosting support so the site never goes stale | Monthly | New |
+
+### Video Editing
+| Plan | Description | Pricing | Badge |
+|---|---|---|---|
+| Reel & Short-Form Editing | Fast-turnaround edits for Instagram Reels, YouTube Shorts, and TikTok | One-time | Hot |
+| Long-Form Video Editing | Full YouTube videos, vlogs, and podcast episode edits | One-time | — |
+| Wedding Video Editing | Cinematic edits of full wedding footage into a highlight film and full-ceremony cut | One-time | Hot, New |
+| Corporate & Promo Video Editing | Polished edits for ads, product launches, and internal company videos | One-time | — |
+
+### Photography & Videography
+| Plan | Description | Pricing | Badge |
+|---|---|---|---|
+| Event Photography | Weddings, parties, and corporate event coverage | One-time | — |
+| Product Photography | Clean, e-commerce-ready product shots | One-time | Popular |
+| Portrait & Personal Branding Shoot | Professional headshots and personal brand photo sets | One-time | — |
+| Wedding Videography | Full-day wedding filming, paired with the Wedding Video Editing plan above | One-time | Hot |
+
+### Graphic Design
+| Plan | Description | Pricing | Badge |
+|---|---|---|---|
+| Logo & Brand Identity | Logo design plus a basic brand kit (colors, fonts, usage guide) | One-time | — |
+| Social Media Creative Pack | A recurring batch of on-brand social post designs each month | Monthly | Popular |
+| Print & Packaging Design | Business cards, brochures, posters, and product packaging | One-time | — |
+| Custom Design Project | One-off design work that doesn't fit a standard package | One-time | — |
+
+### Content Writing
+| Plan | Description | Pricing | Badge |
+|---|---|---|---|
+| Blog & Article Writing | Regular blog content to keep the site active and searchable | Monthly | — |
+| Website Copywriting | One-time copy for a full website — homepage, about, service pages | One-time | — |
+| SEO Content Writing | Keyword-optimized articles built to rank in search | One-time | Popular |
+| Social Media Captions & Content | Ongoing caption and content writing for social channels | Monthly | — |
+
+### SEO / Digital Marketing
+| Plan | Description | Pricing | Badge |
+|---|---|---|---|
+| SEO Audit & On-Page Optimization | A one-time technical and on-page SEO fix-up | One-time | — |
+| Monthly SEO Management | Ongoing keyword tracking, content optimization, and link building | Monthly | Popular |
+| Local SEO / Google Business Profile | Optimizing for "near me" searches and local map rankings | One-time | — |
+| Paid Ads Management | Google and Meta ad campaign setup and ongoing management | Monthly | New |
+
+---
+
+## 4. Public Website Changes
+
+**Services page:** each of the six service cards should expand (accordion, tab, or "View Plans" link to a per-service section) to show its `ServicePlan` list underneath — plan name, short description, pricing label, and a colored badge chip for Hot/New/Popular/Best Value when set. Sort by `sortOrder`.
+
+**Get a Quote form:** after the client picks a service category, dynamically load and show that service's plans as a second dropdown/radio selection (optional — allow "Not sure / general inquiry" as a fallback so the form still works if they don't see an exact match). Save the chosen `servicePlanId` on the `ClientInquiry`.
+
+**Portfolio page:** optionally let portfolio items be tagged to a specific plan as well as a service category, so e.g. wedding edit demos show up specifically under "Wedding Video Editing."
+
+---
+
+## 5. Admin Panel Changes
+
+Under **Site Content**, add a **Service Plans** manager nested under each of the six services:
+- Add/edit/delete a plan: name, description, pricing type (one-time/monthly), starting price label, badge (none/Hot/New/Popular/Best Value), active toggle, sort order
+- Drag-to-reorder plans within a service
+- When viewing a `ClientInquiry` or `Project` in the admin panel, show which specific plan the client selected (not just the broad category)
+
+---
+
+## 6. API Changes
+
+```
+GET    /api/public/services              (now includes nested `plans` array per service)
+GET    /api/public/services/:slug/plans  (plans for one service, for the dynamic quote-form dropdown)
+
+GET/POST/PATCH/DELETE  /api/admin/service-plans   (scoped to a serviceId)
+```
+
+Update the existing `POST /api/public/inquiries` endpoint to accept an optional `servicePlanId` in the request body and store it on the created `ClientInquiry`.
+
+---
+
+## 7. Build Steps for the Replit Agent
+
+1. Add the `ServicePlan`, `PlanBadge`, `PricingType` schema changes above to the existing `schema.prisma` and run the migration.
+2. Seed the plans table using Section 3's data, linked to the existing six `Service` rows by category.
+3. Update the `/api/public/services` endpoint to include nested plans; add the new `/api/admin/service-plans` CRUD routes.
+4. Update the public Services page UI to display plans per service with badge chips.
+5. Update the Get a Quote form to dynamically load and let the client pick a plan after choosing a service.
+6. Add the Service Plans manager to the admin panel's Site Content section.
+7. Update the admin's Client Inquiries / Projects views to display the selected plan alongside the service category.
+8. Test end-to-end: a client picks "Wedding Video Editing" on the quote form → it appears correctly on the admin's inquiry detail view → converting it to a project carries the plan through.
+
+---
+
+**End of add-on brief.** This builds directly on top of the existing Trivinex Partners schema and codebase — no other part of the platform (auth, employee portal, hiring pipeline) needs to change.

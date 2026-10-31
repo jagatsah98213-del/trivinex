@@ -1,0 +1,463 @@
+# Craftloop — Digital Services Agency Platform — Replit Build Prompt
+
+> Paste this into Replit's Agent to start the build. Craftloop is really three products in one: (1) a public agency website for clients, (2) a **hidden** freelancer hiring pipeline (application → interview → hire), and (3) an employee portal + admin control center to run the whole operation.
+>
+> **Before launch:** confirm "Craftloop" clears a domain, social-handle, and trademark check for your region — do this yourself via a registrar and WIPO's Global Brand Database (or your local IP office) before printing it on anything.
+
+---
+
+## 1. Project Overview
+
+Build **Craftloop**, a digital services agency platform that connects clients who need in-demand digital work with **vetted freelancers hired as the company's employees** after an interview process.
+
+Craftloop provides exactly six services at launch:
+
+| Service | One-line description |
+|---|---|
+| **Web Development** | Custom websites, landing pages, and e-commerce builds |
+| **Video Editing** | Reels, YouTube content, promo videos, and event edits |
+| **Photography & Videography** | Event, product, and portrait shoots — video included |
+| **Graphic Design** | Logos, social creatives, posters, and brand kits |
+| **Content Writing** | Blog posts, ad copy, website and product copywriting |
+| **SEO / Digital Marketing** | SEO audits, on-page optimization, and ad campaign management |
+
+Three access layers:
+
+1. **Public website** — clients discover these six services, view demo/portfolio work, request a quote, and book a free consultation. This is the *only* thing visible in the main navigation.
+2. **Freelancer hiring pipeline** — a **hidden, unlinked** application flow. Freelancers apply for one of the six service categories, the admin reviews and interviews them, and selected candidates receive login credentials to become employees. This never appears in the main nav or footer as a headline item.
+3. **Employee portal** — hired freelancers log in to see assigned projects, submit deliverables, and set how they want to get paid (bank transfer, PhonePe, PayPal).
+4. **Admin panel** — Craftloop's full control center: review applicants, run interviews, hire/reject, assign projects, manage client inquiries and meetings, track deliveries and payouts, and manage everything shown on the public site (services list, demo/portfolio content, testimonials).
+
+---
+
+## 2. Tech Stack (free, long-term-sustainable)
+
+| Layer | Choice | Note |
+|---|---|---|
+| Frontend | **Next.js 14 (App Router) + TypeScript + Tailwind CSS + Framer Motion** | Deployed separately from backend |
+| Backend | **Node.js + Express + TypeScript** | Own folder, own deploy pipeline |
+| ORM | **Prisma** | Type-safe DB access |
+| Database | **Neon (serverless Postgres)** | Confirmed permanent free tier: 0.5GB storage, 100 compute-hours/month, scales to zero, no credit card |
+| Auth | JWT (httpOnly cookie) + bcrypt, two roles: `ADMIN`, `EMPLOYEE` | Neither role can be created via public sign-up |
+| File/media storage | **Cloudinary** free tier | Portfolio images/video thumbnails, resumes, deliverable links |
+| Email | **Resend** free tier | Interview invites, selection/rejection notices, meeting confirmations |
+| Frontend hosting | **Vercel** Hobby (free forever) | |
+| Backend hosting | **Render** free web service tier | Genuinely permanent free tier (sleeps when idle, wakes on request) — see note below |
+
+> **On Railway:** Railway no longer offers an indefinite free tier — it's now a one-time $5 trial credit, then a $5/month Hobby minimum. Since the requirement is fully free, Render is used below. Move to Railway later once Craftloop has paying clients; it's a redeploy, not a rebuild.
+
+Keep `frontend/` and `backend/` as two independent projects with their own `package.json`, talking over HTTPS via an `NEXT_PUBLIC_API_URL` environment variable.
+
+---
+
+## 3. Roles & Access Model
+
+| Role | How they get access | What they can do |
+|---|---|---|
+| **Client** (guest, no login) | Anyone visiting the site | Browse services/portfolio, submit a quote request, book a consultation slot |
+| **EMPLOYEE** (hired freelancer) | Admin creates the account only *after* selecting them post-interview; credentials emailed automatically | Log into `/employee/login`, view assigned projects, submit deliverable links, set/update payout method & details |
+| **ADMIN** (Craftloop) | Seeded directly via environment variables at first deploy — never via public sign-up | Full control: applicants, interviews, employees, client inquiries, meetings, projects, payments, site content |
+
+**Keeping the hiring side hidden:** the application form and employee login must **not** appear in the main navigation bar. Place them only as a small, quiet footer link (e.g., "Careers") or as direct URLs (`/careers`, `/employee/login`) shared manually with candidates — either way, keep them out of the primary nav where a client would see them. The admin login (`/admin/login`) should not be linked anywhere on the public site at all.
+
+---
+
+## 4. Database Schema (Prisma)
+
+```prisma
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+enum PayoutMethod {
+  BANK_TRANSFER
+  PHONEPE
+  PAYPAL
+}
+
+enum SlotPurpose {
+  INTERVIEW
+  CLIENT_MEETING
+}
+
+enum ServiceCategory {
+  WEB_DEVELOPMENT
+  VIDEO_EDITING
+  PHOTOGRAPHY_VIDEOGRAPHY
+  GRAPHIC_DESIGN
+  CONTENT_WRITING
+  SEO_DIGITAL_MARKETING
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         Role
+  createdAt    DateTime @default(now())
+  employee     Employee?
+}
+
+model Applicant {
+  id                 String          @id @default(cuid())
+  fullName           String
+  email              String
+  phone              String
+  serviceCategory    ServiceCategory
+  portfolioLinks     Json?           // array of URLs
+  yearsExperience    Int?
+  equipmentOwned     String?         // e.g. "DSLR camera, drone, lighting kit" — relevant for Photography & Videography
+  availability       String?
+  expectedRate       String?
+  preferredPayout    PayoutMethod?
+  coverNote          String?
+  resumeUrl          String?
+  status             String          @default("applied") // applied | interview_scheduled | interviewed | selected | rejected
+  adminNotes         String?
+  createdAt          DateTime        @default(now())
+  interviewBooking   InterviewBooking?
+  employee           Employee?
+}
+
+model Employee {
+  id              String          @id @default(cuid())
+  applicantId     String?         @unique
+  applicant       Applicant?      @relation(fields: [applicantId], references: [id])
+  userId          String          @unique
+  user            User            @relation(fields: [userId], references: [id])
+  fullName        String
+  email           String
+  phone           String
+  serviceCategory ServiceCategory
+  isActive        Boolean         @default(true)
+  payoutMethod    PayoutMethod?
+  payoutDetails   Json?           // bank account / PhonePe number / PayPal email — visible to ADMIN only
+  createdAt       DateTime        @default(now())
+  assignments     ProjectAssignment[]
+  payments        Payment[]
+}
+
+model ClientInquiry {
+  id              String          @id @default(cuid())
+  name            String
+  email           String
+  phone           String
+  serviceNeeded   ServiceCategory
+  projectDetails  String
+  budgetRange     String?
+  timeline        String?
+  status          String          @default("new") // new | contacted | converted | closed
+  createdAt       DateTime        @default(now())
+  project         Project?
+}
+
+model Slot {
+  id        String      @id @default(cuid())
+  purpose   SlotPurpose
+  date      DateTime
+  startTime String      // "14:30"
+  capacity  Int         @default(1)
+  booked    Int         @default(0)
+  meetLink  String?     // Google Meet/Zoom link, set by admin
+  interviewBooking InterviewBooking?
+  meetingBooking   MeetingBooking?
+}
+
+model InterviewBooking {
+  id          String   @id @default(cuid())
+  applicantId String   @unique
+  applicant   Applicant @relation(fields: [applicantId], references: [id])
+  slotId      String   @unique
+  slot        Slot     @relation(fields: [slotId], references: [id])
+  status      String   @default("scheduled") // scheduled | completed | no_show | cancelled
+  createdAt   DateTime @default(now())
+}
+
+model MeetingBooking {
+  id          String   @id @default(cuid())
+  slotId      String   @unique
+  slot        Slot     @relation(fields: [slotId], references: [id])
+  clientName  String
+  clientEmail String
+  clientPhone String
+  notes       String?
+  status      String   @default("pending") // pending | confirmed | cancelled
+  createdAt   DateTime @default(now())
+}
+
+model Project {
+  id                    String          @id @default(cuid())
+  inquiryId             String?         @unique
+  inquiry               ClientInquiry?  @relation(fields: [inquiryId], references: [id])
+  clientName            String
+  clientEmail           String
+  clientPhone           String?
+  serviceCategory       ServiceCategory
+  title                 String
+  description           String?
+  status                String          @default("new") // new | in_progress | delivered | completed | cancelled
+  deadline              DateTime?
+  deliverableUrl        String?
+  clientPaymentReceived Boolean         @default(false)
+  clientPaymentAmount   Decimal?
+  createdAt             DateTime        @default(now())
+  assignments           ProjectAssignment[]
+  payments              Payment[]
+}
+
+model ProjectAssignment {
+  id         String   @id @default(cuid())
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id])
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  status     String   @default("assigned") // assigned | in_progress | submitted | approved
+  assignedAt DateTime @default(now())
+}
+
+model Payment {
+  id            String       @id @default(cuid())
+  projectId     String
+  project       Project      @relation(fields: [projectId], references: [id])
+  employeeId    String
+  employee      Employee     @relation(fields: [employeeId], references: [id])
+  amount        Decimal
+  method        PayoutMethod
+  status        String       @default("pending") // pending | paid
+  paidAt        DateTime?
+  referenceNote String?
+  createdAt     DateTime     @default(now())
+}
+
+model Service {
+  id              String          @id @default(cuid())
+  category        ServiceCategory @unique
+  title           String
+  slug            String          @unique
+  description     String
+  icon            String?
+  startingPrice   String?         // flexible label, e.g. "Starting at $50"
+  isActive        Boolean         @default(true)
+  sortOrder       Int             @default(0)
+}
+
+model PortfolioItem {
+  id              String          @id @default(cuid())
+  serviceCategory ServiceCategory
+  title           String
+  description     String?
+  mediaType       String          // "image" | "video" | "link"
+  mediaUrl        String          // image/video URL, embed URL, or live demo link
+  thumbnailUrl    String?
+  isFeatured      Boolean         @default(false)
+  sortOrder       Int             @default(0)
+}
+
+model Testimonial {
+  id          String  @id @default(cuid())
+  clientName  String
+  quote       String
+  rating      Int
+  isPublished Boolean @default(false)
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String
+  action    String   // "APPLICANT_SELECTED", "PAYMENT_MARKED_PAID", etc.
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
+```
+
+Seed the six `Service` rows using the table in Section 1 (title + description), a few `PortfolioItem` demos per category, and one `ADMIN` user for local testing.
+
+---
+
+## 5. Public Website — Pages
+
+1. **Home** — hero with Craftloop's value proposition ("Vetted freelance talent, ready to deliver"), a grid of the six services, "how it works" 3-step strip (tell us what you need → we match you with a vetted specialist → get your work delivered, pay how you like), featured portfolio/demo preview pulled from `PortfolioItem`, published testimonials carousel, CTAs: "Get a Quote" and "Book a Free Consultation."
+2. **Services** — a card for each of the six `Service` entries (title, description, starting price label), each linking to its portfolio demos.
+3. **Portfolio / Demo Work** — filterable by the six service categories. For web development, show live template links or screenshots; for video editing, embed demo reels; for photography/videography, show photo/video galleries; for graphic design, show design mockups; for content writing, show writing samples; for SEO/digital marketing, show before/after ranking or ad-performance snapshots. All pulled from `PortfolioItem`, fully admin-editable.
+4. **About** — Craftloop's story and mission (connecting skilled freelancers with real client work).
+5. **Get a Quote** — form: name, email, phone, service needed (dropdown of the six), project details, budget range, timeline → saves to `ClientInquiry`, emails the admin.
+6. **Book a Consultation** — client picks an open `Slot` (purpose = `CLIENT_MEETING`) by date/time, submits contact details → saves to `MeetingBooking`, sends a confirmation email with the meet link.
+7. **Testimonials** — published client reviews.
+
+**Design direction:** modern, professional, tech-forward — deep navy or charcoal base with one vibrant accent (electric blue, teal, or coral), clean sans-serif type, generous whitespace, subtle scroll-reveal animation (Framer Motion), sticky nav with a prominent "Get a Quote" button, fast-loading optimized media via Cloudinary, fully responsive.
+
+---
+
+## 6. Hidden Freelancer Application (`/careers`, unlinked from main nav)
+
+A form for prospective freelancers:
+
+- Full name, email, phone
+- Service category (dropdown: Web Development, Video Editing, Photography & Videography, Graphic Design, Content Writing, SEO / Digital Marketing)
+- Portfolio links (add multiple)
+- Years of experience
+- Equipment owned (free text — this is where camera owners without steady work signal what they bring, e.g. "own DSLR + tripod + lighting kit"; relevant mainly for Photography & Videography and Video Editing applicants)
+- Availability (e.g., part-time/full-time/hours per week)
+- Expected rate
+- Preferred payout method (bank transfer / PhonePe / PayPal)
+- Cover note ("why do you want to join Craftloop")
+- Optional resume/portfolio file upload (Cloudinary)
+
+On submit → creates an `Applicant` row with status `applied`, confirmation email sent, and it appears in the admin's applicant queue. No login is created at this stage.
+
+---
+
+## 7. Employee Portal (`/employee/login`, unlinked from main nav)
+
+Once an applicant is selected and their `Employee` + `User` records are created by the admin (credentials auto-emailed), they can log in to:
+
+- **Dashboard** — assigned projects at a glance
+- **My Projects** — list of `ProjectAssignment`s: client, service, brief, deadline, status. Submit/update a deliverable link when work is done (moves assignment status to `submitted`).
+- **Payout Settings** — set/update preferred payout method and account details (bank account info / PhonePe number / PayPal email). Clearly label this data as private and visible only to the admin team.
+- **Payment History** — see status of each payment tied to their completed projects (`pending` / `paid`, with date and reference note once paid).
+- **Account** — change password.
+
+---
+
+## 8. Admin Panel (`/admin`, unlinked anywhere public)
+
+Sidebar-navigation control center:
+
+- **Dashboard** — new applicants, interviews scheduled this week, active projects, pending payouts, new inquiries, upcoming consultations — all at a glance.
+- **Applicants & Interviews**
+  - List/filter applicants by status and service category
+  - View full application detail
+  - Open a `Slot` (purpose = `INTERVIEW`) with a date/time + meet link, which lets the applicant self-book it (email sent automatically with a booking link) — or the admin can assign a slot directly
+  - After the interview, mark status `interviewed`, then `selected` or `rejected`
+  - On `selected`: one click auto-creates the `Employee` + `User` record with a generated password, and emails the new employee their login credentials
+  - On `rejected`: optional templated rejection email
+- **Employees** — list all hired freelancers by service category, active/inactive toggle, view payout details (admin-only visibility), manually add an employee record for a referred freelancer if needed (bypassing the applicant form).
+- **Client Inquiries** — list of quote requests, view details, convert an inquiry directly into a `Project`.
+- **Consultations** — list of `MeetingBooking`s, confirm/reschedule, manage open `Slot`s.
+- **Projects** — central tracker: client, service, assigned employee(s), status, deadline, deliverable link, client payment received (yes/no + amount). Assign one or more employees to a project here.
+- **Payments (Payouts)** — for each completed project, create/track a `Payment` per employee: amount, method, status. Mark as `paid` with a reference note once sent manually via bank/PhonePe/PayPal outside the platform.
+- **Site Content** — manage the six `Service` entries (title, description, icon, starting price label, active/inactive, order), manage `PortfolioItem` demos per category, manage `Testimonial`s (approve before they go public).
+- **Audit Log** — searchable history of sensitive actions (selections, rejections, payments marked paid).
+
+---
+
+## 9. API Structure (Express backend)
+
+```
+POST   /api/auth/login
+POST   /api/auth/logout
+GET    /api/auth/me
+
+GET    /api/public/services
+GET    /api/public/portfolio
+GET    /api/public/testimonials
+GET    /api/public/slots?purpose=CLIENT_MEETING
+POST   /api/public/inquiries
+POST   /api/public/meeting-bookings
+POST   /api/public/applicants
+GET    /api/public/slots?purpose=INTERVIEW&applicantId=...   (for self-booking an interview)
+POST   /api/public/interview-bookings
+
+GET    /api/employee/projects
+PATCH  /api/employee/projects/:assignmentId
+GET/PATCH /api/employee/payout-settings
+GET    /api/employee/payments
+
+GET/PATCH        /api/admin/applicants
+POST             /api/admin/applicants/:id/select     (creates Employee + User, sends email)
+POST             /api/admin/applicants/:id/reject
+GET/POST/PATCH   /api/admin/slots
+GET/PATCH        /api/admin/employees
+GET/PATCH        /api/admin/inquiries
+POST             /api/admin/inquiries/:id/convert-to-project
+GET/POST/PATCH   /api/admin/projects
+GET/POST/PATCH   /api/admin/payments
+GET/POST/PATCH/DELETE /api/admin/services
+GET/POST/PATCH/DELETE /api/admin/portfolio-items
+GET/PATCH/DELETE /api/admin/testimonials
+GET              /api/admin/audit-logs
+```
+
+Every `/api/employee/*` route scopes data to the logged-in employee's own records. Every `/api/admin/*` route requires `role === 'ADMIN'`, checked server-side, never trusted from the client.
+
+---
+
+## 10. Security Requirements
+
+- Passwords hashed with **bcrypt**; sessions via **httpOnly, secure, sameSite JWT cookies** (never localStorage).
+- Role-checking middleware on every protected route, re-verified server-side per request.
+- **No public sign-up** for `ADMIN` or `EMPLOYEE` — both are only ever created by an existing admin action.
+- **Payout details are sensitive financial data** (bank account numbers, PhonePe numbers, PayPal emails): restrict read access to the owning employee and `ADMIN` only; never expose them in any public or client-facing response; store as encrypted JSON if your Postgres setup supports column-level encryption, or at minimum never log them in plaintext anywhere.
+- Input validation (**zod**) on every form: applicant form, quote request, meeting booking.
+- Rate limiting on `/api/auth/login`, `/api/public/inquiries`, `/api/public/applicants`, and `/api/public/meeting-bookings` to block spam/brute force.
+- **Helmet.js** for HTTP security headers; CORS locked to the known frontend origin.
+- `.env` (never committed): `DATABASE_URL`, `JWT_SECRET`, Cloudinary keys, Resend API key, `ADMIN_SEED_EMAIL` / `ADMIN_SEED_PASSWORD` for the first admin account.
+- Write an automated test confirming one employee can never read another employee's projects or payout data.
+
+---
+
+## 11. Repo Structure
+
+```
+/frontend            (Next.js — deployed to Vercel)
+  /app
+    /(public)/...
+    /careers
+    /employee/login
+    /employee/...
+    /admin/login
+    /admin/...
+  /components
+  /lib
+
+/backend             (Express + Prisma API — deployed to Render)
+  /src
+    /routes
+    /middleware
+    /prisma
+  package.json
+
+README.md
+```
+
+---
+
+## 12. Build Order
+
+1. Scaffold `frontend/` (Next.js) and `backend/` (Express + TypeScript) as separate projects.
+2. Set up Prisma with the schema above on a free Neon Postgres database; run migrations; seed the six services, a few portfolio items, and one admin user.
+3. Build auth (login/logout, JWT cookie, role middleware) for `ADMIN` and `EMPLOYEE`.
+4. Build the public pages wired to real API data — services, portfolio, quote form, consultation booking.
+5. Build the hidden freelancer application form and confirm it's unreachable from the main nav.
+6. Build the admin panel: applicants/interview flow first (this is the core hiring loop), then employees, inquiries, projects, payments, and site content management.
+7. Build the employee portal: assigned projects, deliverable submission, payout settings, payment history.
+8. Wire Cloudinary (uploads) and Resend (all transactional emails: applicant confirmation, interview invite, selection/rejection, meeting confirmation).
+9. Write the data-isolation test (one employee can't see another's data).
+10. Polish responsive design, animations, loading/empty states.
+11. Deploy (see below).
+
+---
+
+## 13. Deployment Plan (free stack)
+
+1. Create a free **Neon** project → copy the connection string into `DATABASE_URL`.
+2. Create a free **Cloudinary** account → copy cloud name/API key/secret.
+3. Create a free **Resend** account → copy API key, verify a sender domain (or use their test domain while developing).
+4. Deploy `backend/` to **Render**'s free web service tier → set all env vars there. (Swap to Railway later if you outgrow the free tier and want its usage-based pricing instead.)
+5. Deploy `frontend/` to **Vercel** → set `NEXT_PUBLIC_API_URL` to the backend's deployed URL. Vercel gives a free `*.vercel.app` domain automatically.
+6. Set `ADMIN_SEED_EMAIL` / `ADMIN_SEED_PASSWORD` in the backend's environment before first boot; log in once and change the password immediately.
+7. *(Optional, later)* attach a custom domain via Vercel's domain settings once "craftloop" (or your final chosen name) is cleared and registered.
+
+---
+
+## 14. Optional Phase-2 Upgrades (not required for launch)
+
+- Payment gateway integration (Stripe/Razorpay) so clients can pay through the site directly, rather than the current manual "mark as received" tracking.
+- A client project-status link (unique token emailed to the client, no login required) to check progress without building a full client account system.
+- Automated calendar sync (Google Calendar API) instead of manually pasted meet links.
+- SMS notifications for interview/meeting reminders (Twilio free trial credits).
+
+---
+
+**End of brief.** Give this whole document to the Replit Agent. Have it confirm the schema and auth work first, then build in the order in Section 12 — the applicant → interview → hire loop (Sections 6 and 8) is the heart of the business model, so get that solid before polishing the rest.
