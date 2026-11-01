@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useLogout, useGetCurrentUser } from "@workspace/api-client-react";
+import { customFetch } from "@workspace/api-client-react";
 import {
   LayoutDashboard,
   FileText,
@@ -25,6 +26,23 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const logout = useLogout();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [csrfInitialized, setCsrfInitialized] = useState(false);
+
+  // Ensure CSRF token is set in session before any admin mutations.
+  // This prevents "Invalid or missing CSRF token" errors on edit/delete/convert.
+  useEffect(() => {
+    let cancelled = false;
+    async function initCsrf() {
+      try {
+        await customFetch("/admin/csrf-token", { method: "GET" });
+      } catch {
+        // CSRF token will be fetched on first mutation by customFetch auto-fallback
+      }
+      if (!cancelled) setCsrfInitialized(true);
+    }
+    if (user) initCsrf();
+    return () => { cancelled = true; };
+  }, [user]);
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== "ADMIN")) {

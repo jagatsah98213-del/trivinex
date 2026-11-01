@@ -1,9 +1,14 @@
-import { db, servicesTable, servicePlansTable, faqsTable, siteSettingsTable, testimonialsTable, portfolioItemsTable } from "@workspace/db";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import {
+  db,
+  servicesTable,
+  servicePlansTable,
+  faqsTable,
+  siteSettingsTable,
+  testimonialsTable,
+  portfolioItemsTable,
+} from "@workspace/db";
 import { eq } from "drizzle-orm";
-
-function getModelName(): string {
-  return process.env.GEMINI_MODEL || "gemini-1.5-flash";
-}
 
 /**
  * Build a curated public knowledge context from published database records.
@@ -99,15 +104,12 @@ async function buildKnowledgeContext(pageContext?: string): Promise<string> {
 }
 
 /**
- * Generate an AI assistant reply grounded in approved public company knowledge.
- * Uses the Google Gemini REST API directly (no SDK dependency).
- * The assistant is transparent about being AI and never invents facts.
+ * Resolve the Gemini API key from environment or database settings.
+ * Falls back to the `gemini_api_key` site setting if env var is not set.
  */
-export async function generateAiReply(message: string, pageContext?: string): Promise<string> {
-  const modelName = getModelName();
-  let apiKey = process.env.GEMINI_API_KEY;
+async function resolveApiKey(): Promise<string | null> {
+  let apiKey = process.env.GEMINI_API_KEY?.trim();
 
-  // Fallback: try to get API key from database settings
   if (!apiKey) {
     try {
       const [geminiRow] = await db
@@ -121,6 +123,17 @@ export async function generateAiReply(message: string, pageContext?: string): Pr
       // Settings table may not exist yet
     }
   }
+
+  return apiKey ?? null;
+}
+
+/**
+ * Generate an AI assistant reply grounded in approved public company knowledge.
+ * Uses the Google Generative AI SDK (same proven approach as NS_JAGAT).
+ * The model is hardcoded (no GEMINI_MODEL env var needed).
+ */
+export async function generateAiReply(message: string, pageContext?: string): Promise<string> {
+  const apiKey = await resolveApiKey();
 
   if (!apiKey) {
     return "I'm sorry, the AI assistant is not currently configured. Please contact Trivenix Partners directly for information about our services.";
@@ -156,27 +169,12 @@ Visitor message: ${message}
 
 Reply:`;
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(apiKey)}`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: systemInstruction }] }],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 500,
-        },
-      }),
-    });
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    if (!res.ok) {
-      const errorText = await res.text().catch(() => "");
-      console.error("[ai] Gemini API error:", res.status, errorText);
-      return "I'm having trouble connecting to my knowledge base right now. Please visit our contact page to reach Trivenix Partners directly.";
-    }
+    const result = await model.generateContent(systemInstruction);
+    const text = result.response.text();
 
-    const data = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) {
       return "I'm not sure how to answer that. Please contact Trivenix Partners directly.";
     }
