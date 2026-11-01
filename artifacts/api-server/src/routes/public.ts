@@ -37,9 +37,24 @@ import {
   CreateAiChatResponse,
 } from "@workspace/api-zod";
 import { requireCsrf } from "../lib/auth";
+import { ensureCsrfToken } from "../lib/session";
 
 const router: IRouter = Router();
+const isProd = process.env["NODE_ENV"] === "production";
 const adminEmail = () => process.env.ADMIN_EMAIL || process.env.SMTP_USER;
+
+// CSRF token for public forms (inquiries, AI chat, meeting bookings)
+router.get("/public/csrf-token", async (req, res) => {
+  const token = ensureCsrfToken(req as any);
+  res.cookie("XSRF-TOKEN", token, {
+    httpOnly: false,
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
+    path: "/",
+    maxAge: 1000 * 60 * 60 * 24 * 7,
+  });
+  res.json({ csrfToken: token });
+});
 
 // Honeypot field name — real users won't fill it, bots might.
 const HONEYPOT_FIELD = "website";

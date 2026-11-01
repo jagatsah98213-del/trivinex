@@ -11,6 +11,13 @@ export type AuthTokenGetter = () => Promise<string | null> | string | null;
 const NO_BODY_STATUS = new Set([204, 205, 304]);
 const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
+// Read XSRF-TOKEN cookie (set by the API after login or via /api/public/csrf-token)
+function getCsrfTokenFromCookie(): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 // ---------------------------------------------------------------------------
 // Module-level configuration
 // ---------------------------------------------------------------------------
@@ -355,6 +362,34 @@ export async function customFetch<T = unknown>(
     const token = await _authTokenGetter();
     if (token) {
       headers.set("authorization", `Bearer ${token}`);
+    }
+  }
+
+  // Attach XSRF token from cookie for state-changing requests
+  if (
+    method !== "GET" &&
+    method !== "HEAD" &&
+    method !== "OPTIONS" &&
+    !headers.has("x-xsrf-token")
+  ) {
+    let csrfToken = getCsrfTokenFromCookie();
+    if (!csrfToken) {
+      // No CSRF cookie yet — fetch one from the public CSRF endpoint
+      try {
+        const csrfRes = await fetch("/api/public/csrf-token", {
+          method: "GET",
+          credentials: "include",
+        });
+        if (csrfRes.ok) {
+          const csrfData = await csrfRes.json();
+          csrfToken = csrfData.csrfToken as string;
+        }
+      } catch {
+        // CSRF token fetch failed — continue without it
+      }
+    }
+    if (csrfToken) {
+      headers.set("x-xsrf-token", csrfToken);
     }
   }
 

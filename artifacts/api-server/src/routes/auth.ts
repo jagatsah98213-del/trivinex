@@ -61,7 +61,7 @@ router.post("/auth/login", authLimiter, async (req, res) => {
   res.cookie("XSRF-TOKEN", csrfToken, {
     httpOnly: false,
     secure: isProd,
-    sameSite: isProd ? "lax" : "lax",
+    sameSite: isProd ? "none" : "lax",
     path: "/",
     maxAge: 1000 * 60 * 60 * 24 * 7,
   });
