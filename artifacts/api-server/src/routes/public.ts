@@ -256,7 +256,7 @@ router.post("/public/applicants", inquiryLimiter, async (req, res) => {
     email: z.string().email("Valid email is required"),
     phone: z.string().min(5, "Phone number is required"),
     serviceCategory: z.enum(serviceCategoryEnum.enumValues as [string, ...string[]]),
-    portfolioLinks: z.string().min(5, "At least one portfolio link is required"),
+    portfolioLinks: z.array(z.string().url("Each link must be a valid URL")).min(1, "At least one portfolio link is required"),
     yearsExperience: z.coerce.number().min(0).max(50),
     equipmentOwned: z.string().optional(),
     availability: z.string().min(2, "Please indicate your availability"),
@@ -272,8 +272,6 @@ router.post("/public/applicants", inquiryLimiter, async (req, res) => {
     return;
   }
 
-  const portfolioLinksArray = body.portfolioLinks.split(",").map((s) => s.trim()).filter(Boolean);
-
   const [applicant] = await db
     .insert(applicantsTable)
     .values({
@@ -281,7 +279,7 @@ router.post("/public/applicants", inquiryLimiter, async (req, res) => {
       email: body.email,
       phone: body.phone,
       serviceCategory: body.serviceCategory,
-      portfolioLinks: portfolioLinksArray,
+      portfolioLinks: body.portfolioLinks,
       yearsExperience: body.yearsExperience,
       equipmentOwned: body.equipmentOwned ?? null,
       availability: body.availability,

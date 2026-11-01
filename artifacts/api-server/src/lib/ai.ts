@@ -163,16 +163,15 @@ IMPORTANT RULES:
 Current page context: ${pageContext ?? "homepage"}
 
 Approved public knowledge:
-${knowledge || "No specific knowledge base content available."}
-
-Visitor message: ${message}
-
-Reply:`;
+${knowledge || "No specific knowledge base content available."}`;
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash",
+      systemInstruction,
+    });
 
-    const result = await model.generateContent(systemInstruction);
+    const result = await model.generateContent(message);
     const text = result.response.text();
 
     if (!text) {
@@ -180,7 +179,8 @@ Reply:`;
     }
     return text;
   } catch (err) {
-    console.error("[ai] Gemini error:", err instanceof Error ? err.message : String(err));
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error("[ai] Gemini error:", errMsg);
     return "I'm having trouble connecting to my knowledge base right now. Please visit our contact page to reach Trivenix Partners directly, or check our FAQs and services pages for information.";
   }
 }
