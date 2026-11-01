@@ -16,6 +16,7 @@ import {
   siteSettingsTable,
   mediaAssetsTable,
   usersTable,
+  applicantsTable,
 } from "@workspace/db";
 import {
   GetAdminDashboardResponse,
@@ -129,6 +130,86 @@ router.get("/admin/dashboard", async (_req, res) => {
       projectsByStatus: {},
     }),
   );
+});
+
+// ---------- Freelancer applicants ----------
+
+const AdminApplicantUpdateBody = z.object({
+  status: z.enum(["applied", "interview_scheduled", "interviewed", "selected", "rejected"]).optional(),
+  adminNotes: z.string().optional(),
+});
+
+router.get("/admin/applicants", async (_req, res) => {
+  const rows = await db
+    .select()
+    .from(applicantsTable)
+    .orderBy(desc(applicantsTable.createdAt));
+  res.json(rows);
+});
+
+router.get("/admin/applicants/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) {
+    res.status(400).json({ message: "Invalid applicant id" });
+    return;
+  }
+  const [applicant] = await db.select().from(applicantsTable).where(eq(applicantsTable.id, id));
+  if (!applicant) {
+    res.status(404).json({ message: "Applicant not found" });
+    return;
+  }
+  res.json(applicant);
+});
+
+router.patch("/admin/applicants/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) {
+    res.status(400).json({ message: "Invalid applicant id" });
+    return;
+  }
+  const body = AdminApplicantUpdateBody.parse(req.body);
+  const [updated] = await db
+    .update(applicantsTable)
+    .set(body)
+    .where(eq(applicantsTable.id, id))
+    .returning();
+  if (!updated) {
+    res.status(404).json({ message: "Applicant not found" });
+    return;
+  }
+  await recordAuditLog(String(req.session.userId), "applicant.update", { applicantId: id, ...body });
+  res.json(updated);
+});
+
+router.post("/admin/applicants/:id/reject", async (req, res) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) {
+    res.status(400).json({ message: "Invalid applicant id" });
+    return;
+  }
+  const [updated] = await db
+    .update(applicantsTable)
+    .set({ status: "rejected" })
+    .where(eq(applicantsTable.id, id))
+    .returning();
+  if (!updated) {
+    res.status(404).json({ message: "Applicant not found" });
+    return;
+  }
+  await recordAuditLog(String(req.session.userId), "applicant.reject", { applicantId: id });
+  res.json(updated);
+});
+
+router.delete("/admin/applicants/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) {
+    res.status(400).json({ message: "Invalid applicant id" });
+    return;
+  }
+  const [deleted] = await db.delete(applicantsTable).where(eq(applicantsTable.id, id)).returning();
+  if (!deleted) { res.status(404).json({ message: "Applicant not found" }); return; }
+  await recordAuditLog(String(req.session.userId), "applicant.delete", { applicantId: id });
+  res.status(204).send();
 });
 
 // ---------- Client inquiries ----------

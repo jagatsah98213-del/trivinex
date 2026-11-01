@@ -215,4 +215,61 @@ export function consultationAdminNotificationEmail(booking: {
   `);
 }
 
-// Removed freelancer/applicant and interview email templates — no public recruitment.
+// Freelancer application email templates
+
+export function freelancerApplicationConfirmationEmail(fullName: string, serviceCategory: string) {
+  return emailShell(`
+    <h1>Your application has been received ✅</h1>
+    <p class="sub">Hi ${escapeHtml(fullName)}, thank you for your interest in joining Trivinex Partners.</p>
+    <div class="card">
+      <p><strong>Applied for:</strong> ${escapeHtml(serviceCategory.replace(/_/g, " "))}</p>
+      <p style="margin-top:10px;">
+        Your application is currently <strong>under review</strong> by our talent team. We carefully evaluate each submission to ensure the best fit for our standards.
+      </p>
+    </div>
+    <p style="color:#6E6E73;font-size:14px;line-height:1.7;margin-bottom:20px;">
+      Shortly, we will contact you on this same email address to inform you of the outcome of your application. Please keep an eye on your inbox — and your spam folder just in case.
+    </p>
+    <div class="divider"></div>
+    <p class="footer-text">
+      <strong>What to expect:</strong><br/>
+      1. Application review<br/>
+      2. Outcome communicated via email<br/>
+      3. Next steps if shortlisted
+    </p>
+    <div class="divider"></div>
+    <p class="footer-text">
+      We appreciate your patience. If you have any questions in the meantime, feel free to reach out to us directly.
+    </p>
+  `);
+}
+
+export function applicantAdminNotificationEmail(applicant: {
+  id: number;
+  fullName: string;
+  email: string;
+  phone: string;
+  serviceCategory: string;
+  yearsExperience?: number | null;
+  availability?: string | null;
+  expectedRate?: string | null;
+  coverNote?: string | null;
+  resumeUrl?: string | null;
+}) {
+  return emailShell(`
+    <h1>New freelancer application</h1>
+    <p class="sub">A new freelancer application was submitted on the Trivinex Partners website.</p>
+    <div class="card">
+      <p><strong>Application #:</strong> ${applicant.id}</p>
+      <p><strong>Name:</strong> ${escapeHtml(applicant.fullName)}</p>
+      <p><strong>Email:</strong> ${escapeHtml(applicant.email)}</p>
+      <p><strong>Phone:</strong> ${escapeHtml(applicant.phone)}</p>
+      <p><strong>Category:</strong> ${escapeHtml(applicant.serviceCategory.replace(/_/g, " "))}</p>
+      <p><strong>Experience:</strong> ${applicant.yearsExperience ?? "Not provided"}</p>
+      <p><strong>Availability:</strong> ${applicant.availability ?? "Not provided"}</p>
+      <p><strong>Expected rate:</strong> ${applicant.expectedRate ?? "Not provided"}</p>
+      ${applicant.resumeUrl ? `<p><strong>Resume:</strong> <a href="${escapeHtml(applicant.resumeUrl)}">${escapeHtml(applicant.resumeUrl)}</a></p>` : ""}
+    </div>
+    ${applicant.coverNote ? `<p style="color:#1D1D1F;font-size:14px;line-height:1.7;"><strong>Cover note</strong><br/>${escapeHtml(applicant.coverNote).replaceAll("\\n", "<br/>")}</p>` : ""}
+  `);
+}

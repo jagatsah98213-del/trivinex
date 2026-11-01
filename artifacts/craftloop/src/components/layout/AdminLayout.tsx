@@ -13,6 +13,7 @@ import {
   History,
   LogOut,
   Menu,
+  Users,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -45,6 +46,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { href: "/admin", icon: LayoutDashboard, label: "Dashboard" },
+    { href: "/admin/applicants", icon: Users, label: "Applicants" },
     { href: "/admin/inquiries", icon: FileText, label: "Client Inquiries" },
     { href: "/admin/consultations", icon: Calendar, label: "Consultations" },
     { href: "/admin/projects", icon: FolderKanban, label: "Projects" },

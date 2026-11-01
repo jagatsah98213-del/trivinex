@@ -16,12 +16,14 @@ import About from '@/pages/public/About';
 import Quote from '@/pages/public/Quote';
 import Consultation from '@/pages/public/Consultation';
 import Testimonials from '@/pages/public/Testimonials';
+import Careers from '@/pages/public/Careers';
 import PrivacyPolicy from '@/pages/public/PrivacyPolicy';
 import Terms from '@/pages/public/Terms';
 
 import Login from '@/pages/auth/Login';
 
 import AdminDashboard from '@/pages/admin/Dashboard';
+import AdminApplicants from '@/pages/admin/Applicants';
 import AdminInquiries from '@/pages/admin/Inquiries';
 import AdminConsultations from '@/pages/admin/Consultations';
 import AdminProjects from '@/pages/admin/Projects';
@@ -110,6 +112,7 @@ function Router() {
       <Route path="/quote" component={() => <PublicLayout><Quote /></PublicLayout>} />
       <Route path="/consultation" component={() => <PublicLayout><Consultation /></PublicLayout>} />
       <Route path="/testimonials" component={() => <PublicLayout><Testimonials /></PublicLayout>} />
+      <Route path="/careers" component={() => <PublicLayout><Careers /></PublicLayout>} />
       <Route path="/privacy-policy" component={() => <PublicLayout><PrivacyPolicy /></PublicLayout>} />
       <Route path="/terms" component={() => <PublicLayout><Terms /></PublicLayout>} />
 
@@ -118,6 +121,7 @@ function Router() {
 
       {/* ── Admin portal ── */}
       <Route path="/admin" component={() => <AdminLayout><AdminDashboard /></AdminLayout>} />
+      <Route path="/admin/applicants" component={() => <AdminLayout><AdminApplicants /></AdminLayout>} />
       <Route path="/admin/inquiries" component={() => <AdminLayout><AdminInquiries /></AdminLayout>} />
       <Route path="/admin/consultations" component={() => <AdminLayout><AdminConsultations /></AdminLayout>} />
       <Route path="/admin/projects" component={() => <AdminLayout><AdminProjects /></AdminLayout>} />

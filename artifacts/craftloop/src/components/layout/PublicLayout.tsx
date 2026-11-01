@@ -47,6 +47,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
     { href: "/about", label: "About" },
     { href: "/testimonials", label: "Testimonials" },
     { href: "/consultation", label: "Consultation" },
+    { href: "/careers", label: "Join as Freelancer" },
   ];
 
   return (

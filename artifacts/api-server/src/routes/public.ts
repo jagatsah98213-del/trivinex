@@ -13,6 +13,9 @@ import {
   clientInquiriesTable,
   meetingBookingsTable,
   siteSettingsTable,
+  applicantsTable,
+  serviceCategoryEnum,
+  payoutMethodEnum,
 } from "@workspace/db";
 import {
   sendEmail,
@@ -20,6 +23,8 @@ import {
   inquiryAdminNotificationEmail,
   consultationConfirmationEmail,
   consultationAdminNotificationEmail,
+  freelancerApplicationConfirmationEmail,
+  applicantAdminNotificationEmail,
   verifyEmailConfig,
 } from "../lib/email";
 import {
@@ -238,6 +243,91 @@ router.post("/public/inquiries", inquiryLimiter, async (req, res) => {
       emailStatus,
     }),
   );
+});
+
+/**
+ * Submit a freelancer application.
+ * Persists the applicant, sends a confirmation email to the applicant
+ * and an admin notification. Rate-limited.
+ */
+router.post("/public/applicants", inquiryLimiter, async (req, res) => {
+  const body = z.object({
+    fullName: z.string().min(2, "Name is required"),
+    email: z.string().email("Valid email is required"),
+    phone: z.string().min(5, "Phone number is required"),
+    serviceCategory: z.enum(serviceCategoryEnum.enumValues as [string, ...string[]]),
+    portfolioLinks: z.string().min(5, "At least one portfolio link is required"),
+    yearsExperience: z.coerce.number().min(0).max(50),
+    equipmentOwned: z.string().optional(),
+    availability: z.string().min(2, "Please indicate your availability"),
+    expectedRate: z.string().min(2, "Please indicate your expected rate"),
+    preferredPayout: z.enum(payoutMethodEnum.enumValues as [string, ...string[]]),
+    coverNote: z.string().optional(),
+    resumeUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
+  }).parse(req.body);
+
+  // Honeypot spam check
+  if ((req.body as any)[HONEYPOT_FIELD]) {
+    res.status(201).json({ message: "Received" });
+    return;
+  }
+
+  const portfolioLinksArray = body.portfolioLinks.split(",").map((s) => s.trim()).filter(Boolean);
+
+  const [applicant] = await db
+    .insert(applicantsTable)
+    .values({
+      fullName: body.fullName,
+      email: body.email,
+      phone: body.phone,
+      serviceCategory: body.serviceCategory,
+      portfolioLinks: portfolioLinksArray,
+      yearsExperience: body.yearsExperience,
+      equipmentOwned: body.equipmentOwned ?? null,
+      availability: body.availability,
+      expectedRate: body.expectedRate,
+      preferredPayout: body.preferredPayout,
+      coverNote: body.coverNote ?? null,
+      resumeUrl: body.resumeUrl || null,
+    } as any)
+    .returning();
+
+  // Send confirmation email to applicant + admin notification (non-blocking)
+  const adminEmailValue = adminEmail();
+  if (adminEmailValue) {
+    const clientResult = await sendEmail(
+      applicant.email,
+      "Your application has been received — Trivenix Partners",
+      freelancerApplicationConfirmationEmail(applicant.fullName, applicant.serviceCategory),
+    );
+    const adminResult = await sendEmail(
+      adminEmailValue,
+      `New Freelancer Application from ${applicant.fullName}`,
+      applicantAdminNotificationEmail({
+        id: applicant.id,
+        fullName: applicant.fullName,
+        email: applicant.email,
+        phone: applicant.phone,
+        serviceCategory: applicant.serviceCategory,
+        yearsExperience: applicant.yearsExperience,
+        availability: applicant.availability,
+        expectedRate: applicant.expectedRate,
+        coverNote: applicant.coverNote,
+        resumeUrl: applicant.resumeUrl,
+      }),
+    );
+    if (!clientResult.success || !adminResult.success) {
+      console.warn("[applicant] Email delivery partially failed:", {
+        client: clientResult.error,
+        admin: adminResult.error,
+      });
+    }
+  }
+
+  res.status(201).json({
+    id: applicant.id,
+    message: "Application submitted successfully",
+  });
 });
 
 router.post("/public/meeting-bookings", async (req, res) => {

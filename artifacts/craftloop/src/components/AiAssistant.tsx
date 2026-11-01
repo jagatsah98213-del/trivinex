@@ -40,17 +40,16 @@ export function AiAssistant({ pageContext }: { pageContext?: string }) {
 
       const apiUrl = baseUrl ? `${baseUrl}/api/public/ai-chat` : "/api/public/ai-chat";
 
-      const res = await customFetch(apiUrl, {
+      const data = await customFetch<{ reply: string }>(apiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userText, pageContext }),
         credentials: "include",
       });
-      const data = await res.json();
       setMessages((prev) => [...prev, { role: "assistant", text: data.reply || "I'm not sure how to answer that. Please contact Trivenix Partners directly." }]);
-    } catch {
+    } catch (err: any) {
       setError("I'm having trouble connecting right now. Please try our contact page instead.");
-      setMessages((prev) => [...prev, { role: "assistant", text: error || "I'm having trouble connecting right now. Please try our contact page instead." }]);
+      setMessages((prev) => [...prev, { role: "assistant", text: err?.message || "I'm having trouble connecting right now. Please try our contact page instead." }]);
     } finally {
       setSending(false);
     }
