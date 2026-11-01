@@ -31,7 +31,7 @@ export default function Login({ type }: { type: "admin" }) {
 
   const fetchCsrfToken = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/csrf-token", { credentials: "include" });
+      const res = await fetch("https://trivinex.onrender.com/api/admin/csrf-token", { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setCsrfToken(data.csrfToken);

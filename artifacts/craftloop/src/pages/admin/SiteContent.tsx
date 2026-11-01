@@ -23,7 +23,7 @@ interface SiteSetting { key: string; value: string; label: string }
 function useSiteSettings() {
   return useQuery<SiteSetting[]>({
     queryKey: ["admin-site-settings"],
-    queryFn: () => fetch("/api/admin/site-settings", { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetch("https://trivinex.onrender.com/api/admin/site-settings", { credentials: "include" }).then(r => r.json()),
   });
 }
 
@@ -200,7 +200,7 @@ const faqSchema = z.object({
 function useFaqs() {
   return useQuery<Faq[]>({
     queryKey: ["admin-faqs"],
-    queryFn: () => fetch("/api/admin/faqs", { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetch("https://trivinex.onrender.com/api/admin/faqs", { credentials: "include" }).then(r => r.json()),
   });
 }
 
@@ -208,7 +208,7 @@ function useCreateFaq() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: { question: string; answer: string }) =>
-      fetch("/api/admin/faqs", {
+      fetch("https://trivinex.onrender.com/api/admin/faqs", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -276,7 +276,7 @@ function useCreateServicePlan() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: z.infer<typeof planSchema> & { serviceId: number }) =>
-      fetch("/api/admin/service-plans", {
+      fetch("https://trivinex.onrender.com/api/admin/service-plans", {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),

@@ -40,12 +40,12 @@ const DAY_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Frida
 // ── Raw API helpers (schedule rules are not in OpenAPI spec) ──────────────────
 const API = {
   getRules: (): Promise<ScheduleRule[]> =>
-    fetch("/api/admin/schedule-rules", { credentials: "include" }).then(r => {
+    fetch("https://trivinex.onrender.com/api/admin/schedule-rules", { credentials: "include" }).then(r => {
       if (!r.ok) throw new Error("Failed to load schedule rules");
       return r.json();
     }),
   addRule: (body: { dayOfWeek: number; startTime: string; meetLink?: string }): Promise<ScheduleRule> =>
-    fetch("/api/admin/schedule-rules", {
+    fetch("https://trivinex.onrender.com/api/admin/schedule-rules", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -57,7 +57,7 @@ const API = {
   deleteRule: (id: number): Promise<void> =>
     fetch(`/api/admin/schedule-rules/${id}`, { method: "DELETE", credentials: "include" }).then(() => {}),
   applyRules: (): Promise<{ created: number }> =>
-    fetch("/api/admin/schedule-rules/apply", { method: "POST", credentials: "include" }).then(r => r.json()),
+    fetch("https://trivinex.onrender.com/api/admin/schedule-rules/apply", { method: "POST", credentials: "include" }).then(r => r.json()),
 };
 
 // ── Single custom slot schema ─────────────────────────────────────────────────

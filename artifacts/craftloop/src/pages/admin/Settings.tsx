@@ -29,7 +29,7 @@ export default function AdminSettings() {
 
   const fetchSettings = async () => {
     try {
-      const res = await fetch("/api/public/site-settings");
+      const res = await fetch("https://trivinex.onrender.com/api/public/site-settings");
       const data = await res.json();
       setSettings(data);
     } catch {
@@ -71,7 +71,7 @@ export default function AdminSettings() {
   const testEmailConfig = async () => {
     if (!testEmail) return;
     try {
-      const res = await fetch("/api/admin/email/test", {
+      const res = await fetch("https://trivinex.onrender.com/api/admin/email/test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ to: testEmail }),
@@ -88,7 +88,7 @@ export default function AdminSettings() {
 
   const verifyConfig = async () => {
     try {
-      const res = await fetch("/api/admin/email/test", { credentials: "include" });
+      const res = await fetch("https://trivinex.onrender.com/api/admin/email/test", { credentials: "include" });
       const result = await res.json();
       setEmailTestResult(result);
     } catch {

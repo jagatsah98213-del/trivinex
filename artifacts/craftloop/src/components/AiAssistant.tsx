@@ -34,9 +34,17 @@ export function AiAssistant({ pageContext }: { pageContext?: string }) {
 
     try {
       setSending(true);
-      const res = await fetch("/api/public/ai-chat", {
+
+      // Get CSRF token from cookie
+      const csrfMatch = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/);
+      const csrfToken = csrfMatch ? decodeURIComponent(csrfMatch[1]) : "";
+
+      const res = await fetch("https://trivinex.onrender.com/api/public/ai-chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "X-XSRF-TOKEN": csrfToken } : {}),
+        },
         body: JSON.stringify({ message: userText, pageContext }),
         credentials: "include",
       });

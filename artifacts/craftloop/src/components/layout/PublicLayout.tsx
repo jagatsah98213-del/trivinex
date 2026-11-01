@@ -9,7 +9,7 @@ import { AiAssistant } from "@/components/AiAssistant";
 function usePublicSettings() {
   return useQuery<Record<string, string>>({
     queryKey: ["public-site-settings"],
-    queryFn: () => fetch("/api/public/site-settings").then((r) => r.json()),
+    queryFn: () => fetch("https://trivinex.onrender.com/api/public/site-settings").then((r) => r.json()),
     staleTime: 5 * 60 * 1000,
   });
 }
