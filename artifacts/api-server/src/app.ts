@@ -42,17 +42,43 @@ const allowedOrigins = rawOrigins
   ? rawOrigins.split(",").map((o) => o.trim()).filter(Boolean)
   : [];
 
+const allowAll =
+  rawOrigins.length === 0 ||
+  rawOrigins.includes("*") ||
+  allowedOrigins.some((o) => o === "*");
+
 app.use(
   cors({
-    origin: isProd && allowedOrigins.length > 0
-      ? (origin, cb) => {
-          if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
-          cb(new Error(`CORS: origin ${origin} not allowed`));
-        }
-      : true,
+    origin: allowAll
+      ? true
+      : (origin, cb) => {
+          if (!origin) { cb(null, true); return; }
+
+          const host = origin.replace(/^https?:\/\//, "").replace(/:\d+$/, "");
+
+          const allowed =
+            allowedOrigins.some((o) => {
+              const oHost = o.replace(/^https?:\/\//, "").replace(/:\d+$/, "");
+              return origin === o || host === oHost;
+            }) ||
+            host.endsWith(".vercel.app") ||
+            host.endsWith(".replit.dev") ||
+            host.endsWith(".replit.app") ||
+            host.endsWith(".railway.app") ||
+            host.endsWith(".neon.tech") ||
+            host === "localhost" ||
+            host === "127.0.0.1";
+
+          if (allowed) {
+            cb(null, true);
+          } else {
+            cb(new Error(`CORS: origin ${origin} not allowed`));
+          }
+        },
     credentials: true,
     methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "X-CSRF-Token", "X-XSRF-TOKEN"],
+    exposedHeaders: ["Content-Type", "X-XSRF-TOKEN"],
   }),
 );
 

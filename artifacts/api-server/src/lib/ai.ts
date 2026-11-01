@@ -1,4 +1,5 @@
 import { db, servicesTable, servicePlansTable, faqsTable, siteSettingsTable, testimonialsTable, portfolioItemsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 function getModelName(): string {
   return process.env.GEMINI_MODEL || "gemini-1.5-flash";
@@ -104,7 +105,22 @@ async function buildKnowledgeContext(pageContext?: string): Promise<string> {
  */
 export async function generateAiReply(message: string, pageContext?: string): Promise<string> {
   const modelName = getModelName();
-  const apiKey = process.env.GEMINI_API_KEY;
+  let apiKey = process.env.GEMINI_API_KEY;
+
+  // Fallback: try to get API key from database settings
+  if (!apiKey) {
+    try {
+      const [geminiRow] = await db
+        .select()
+        .from(siteSettingsTable)
+        .where(eq(siteSettingsTable.key, "gemini_api_key"));
+      if (geminiRow?.value?.trim()) {
+        apiKey = geminiRow.value.trim();
+      }
+    } catch {
+      // Settings table may not exist yet
+    }
+  }
 
   if (!apiKey) {
     return "I'm sorry, the AI assistant is not currently configured. Please contact Trivenix Partners directly for information about our services.";

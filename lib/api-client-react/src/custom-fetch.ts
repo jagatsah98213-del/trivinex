@@ -376,7 +376,9 @@ export async function customFetch<T = unknown>(
     if (!csrfToken) {
       // No CSRF cookie yet — fetch one from the public CSRF endpoint
       try {
-        const csrfRes = await fetch("/api/public/csrf-token", {
+        const base = getBaseUrl();
+        const csrfUrl = base ? `${base}/api/public/csrf-token` : "/api/public/csrf-token";
+        const csrfRes = await fetch(csrfUrl, {
           method: "GET",
           credentials: "include",
         });

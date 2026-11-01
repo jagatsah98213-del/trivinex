@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Card, CardContent } from "@/components/ui/card";
+import { customFetch, getBaseUrl } from "@workspace/api-client-react";
 
 const INITIAL_REPLY =
   "Hi! I'm Trivenix Partners' AI assistant. I can answer questions about our services, how we work, pricing philosophy, and more. What would you like to know?";
@@ -25,6 +26,8 @@ export function AiAssistant({ pageContext }: { pageContext?: string }) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const baseUrl = getBaseUrl();
+
   const sendMessage = useCallback(async () => {
     if (!input.trim() || sending) return;
     const userText = input.trim();
@@ -35,20 +38,14 @@ export function AiAssistant({ pageContext }: { pageContext?: string }) {
     try {
       setSending(true);
 
-      // Get CSRF token from cookie
-      const csrfMatch = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/);
-      const csrfToken = csrfMatch ? decodeURIComponent(csrfMatch[1]) : "";
+      const apiUrl = baseUrl ? `${baseUrl}/api/public/ai-chat` : "/api/public/ai-chat";
 
-      const res = await fetch("https://trivinex.onrender.com/api/public/ai-chat", {
+      const res = await customFetch(apiUrl, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(csrfToken ? { "X-XSRF-TOKEN": csrfToken } : {}),
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userText, pageContext }),
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Assistant unavailable");
       const data = await res.json();
       setMessages((prev) => [...prev, { role: "assistant", text: data.reply || "I'm not sure how to answer that. Please contact Trivenix Partners directly." }]);
     } catch {
@@ -57,7 +54,7 @@ export function AiAssistant({ pageContext }: { pageContext?: string }) {
     } finally {
       setSending(false);
     }
-  }, [input, sending, pageContext, error]);
+  }, [input, sending, pageContext, error, baseUrl]);
 
   return (
     <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 w-full sm:w-80 sm:max-w-[400px]">

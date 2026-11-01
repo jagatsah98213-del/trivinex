@@ -165,7 +165,7 @@ router.get("/public/faqs", async (_req, res) => {
  * Persists first, then sends emails non-blocking.
  * Never claims an email was sent if SMTP fails.
  */
-router.post("/public/inquiries", inquiryLimiter, requireCsrf, async (req, res) => {
+router.post("/public/inquiries", inquiryLimiter, async (req, res) => {
   const body = CreateInquiryBody.parse(req.body);
 
   // Honeypot spam check
@@ -240,7 +240,7 @@ router.post("/public/inquiries", inquiryLimiter, requireCsrf, async (req, res) =
   );
 });
 
-router.post("/public/meeting-bookings", requireCsrf, async (req, res) => {
+router.post("/public/meeting-bookings", async (req, res) => {
   const body = CreateMeetingBookingBody.parse(req.body);
   const [slot] = await db.select().from(slotsTable).where(eq(slotsTable.id, body.slotId));
   if (!slot || slot.purpose !== "CLIENT_MEETING" || slot.booked >= slot.capacity) {
@@ -284,7 +284,7 @@ router.post("/public/meeting-bookings", requireCsrf, async (req, res) => {
  * AI assistant endpoint. Grounded in approved public knowledge.
  * Implemented here as a thin handler; the actual Gemini call is in lib/ai.ts.
  */
-router.post("/public/ai-chat", aiChatLimiter, requireCsrf, async (req, res) => {
+router.post("/public/ai-chat", aiChatLimiter, async (req, res) => {
   const body = CreateAiChatBody.parse(req.body);
   try {
     const { generateAiReply } = await import("../lib/ai");
