@@ -51,7 +51,7 @@ export default function AdminApplicants() {
       if (statusFilter !== "all") params.set("status", statusFilter);
       if (serviceFilter !== "all") params.set("serviceCategory", serviceFilter);
 
-      const data = await customFetch(`/admin/applicants?${params.toString()}`, {
+      const data = await customFetch(`/api/admin/applicants?${params.toString()}`, {
         method: "GET",
       });
       setApplicants(Array.isArray(data) ? data : []);
@@ -70,7 +70,7 @@ export default function AdminApplicants() {
 
   const handleUpdateStatus = async (id: number, status: string) => {
     try {
-      await customFetch(`/admin/applicants/${id}`, {
+      await customFetch(`/api/admin/applicants/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
@@ -91,7 +91,7 @@ export default function AdminApplicants() {
   const handleDelete = async () => {
     if (!selectedApplicant) return;
     try {
-      await customFetch(`/admin/applicants/${selectedApplicant}`, {
+      await customFetch(`/api/admin/applicants/${selectedApplicant}`, {
         method: "DELETE",
       });
       setDeleteDialogOpen(false);

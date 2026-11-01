@@ -34,7 +34,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     async function initCsrf() {
       try {
-        await customFetch("/admin/csrf-token", { method: "GET" });
+        await customFetch("/api/admin/csrf-token", { method: "GET" });
       } catch {
         // CSRF token will be fetched on first mutation by customFetch auto-fallback
       }
