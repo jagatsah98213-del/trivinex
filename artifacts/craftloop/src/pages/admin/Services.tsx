@@ -103,7 +103,7 @@ export default function AdminServices() {
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<{ id: number } | null>(null);
-  const form = useForm<z.infer<typeof serviceSchema>>({
+  const form = useForm<z.input<typeof serviceSchema>, any, z.output<typeof serviceSchema>>({
     resolver: zodResolver(serviceSchema),
     defaultValues: {
       category: ServiceCategory.WEB_DEVELOPMENT,

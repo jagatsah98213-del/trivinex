@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import {
   db,
   servicesTable,
@@ -35,7 +35,7 @@ async function buildKnowledgeContext(pageContext?: string): Promise<string> {
     const services = await db
       .select()
       .from(servicesTable)
-      .where((servicesTable as any).isActive.eq(true));
+      .where(eq(servicesTable.isActive, true));
     if (services.length > 0) {
       const serviceSummaries = services.map((s) => ({
         title: s.title,
@@ -54,7 +54,7 @@ async function buildKnowledgeContext(pageContext?: string): Promise<string> {
     const faqs = await db
       .select()
       .from(faqsTable)
-      .where((faqsTable as any).isPublished.eq(true));
+      .where(eq(faqsTable.isPublished, true));
     if (faqs.length > 0) {
       const faqSummaries = faqs.map((f) => ({ question: f.question, answer: f.answer }));
       parts.push("## Frequently Asked Questions\n" + JSON.stringify(faqSummaries, null, 2));
@@ -68,7 +68,7 @@ async function buildKnowledgeContext(pageContext?: string): Promise<string> {
     const testimonials = await db
       .select()
       .from(testimonialsTable)
-      .where((testimonialsTable as any).isPublished.eq(true));
+      .where(eq(testimonialsTable.isPublished, true));
     if (testimonials.length > 0) {
       const testimonialSummaries = testimonials.map((t) => ({
         clientName: t.clientName,
@@ -86,7 +86,7 @@ async function buildKnowledgeContext(pageContext?: string): Promise<string> {
     const portfolio = await db
       .select()
       .from(portfolioItemsTable)
-      .where((portfolioItemsTable as any).isPublished.eq(true));
+      .where(eq(portfolioItemsTable.isPublished, true));
     if (portfolio.length > 0) {
       const portfolioSummaries = portfolio.map((p) => ({
         title: p.title,
@@ -129,8 +129,7 @@ async function resolveApiKey(): Promise<string | null> {
 
 /**
  * Generate an AI assistant reply grounded in approved public company knowledge.
- * Uses the Google Generative AI SDK (same proven approach as NS_JAGAT).
- * The model is hardcoded (no GEMINI_MODEL env var needed).
+ * Uses Google's current GenAI SDK and a configurable model.
  */
 export async function generateAiReply(message: string, pageContext?: string): Promise<string> {
   const apiKey = await resolveApiKey();
@@ -165,14 +164,13 @@ Current page context: ${pageContext ?? "homepage"}
 Approved public knowledge:
 ${knowledge || "No specific knowledge base content available."}`;
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
-      systemInstruction,
+    const genAI = new GoogleGenAI({ apiKey });
+    const result = await genAI.models.generateContent({
+      model: process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash",
+      contents: message,
+      config: { systemInstruction },
     });
-
-    const result = await model.generateContent(message);
-    const text = result.response.text();
+    const text = result.text?.trim();
 
     if (!text) {
       return "I'm not sure how to answer that. Please contact Trivenix Partners directly.";

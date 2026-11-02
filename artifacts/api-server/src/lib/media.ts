@@ -1,4 +1,4 @@
-import { v2 as cloudinary, type UploadApiResponse } from "cloudinary";
+import { v2 as cloudinary } from "cloudinary";
 import { eq } from "drizzle-orm";
 import { db, mediaAssetsTable } from "@workspace/db";
 
@@ -42,19 +42,11 @@ export interface MediaUploadRequest {
 
 export interface SignedUploadResult {
   uploadUrl: string;
-  asset: {
-    fileName: string;
-    mimeType: string;
-    fileSize: number;
-    url: string;
-    secureUrl: string | null;
-    publicId: string | null;
-    provider: string;
-    width: number | null;
-    height: number | null;
-    duration: number | null;
-    caption: string | null;
-  };
+  apiKey: string;
+  signature: string;
+  timestamp: number;
+  folder: string;
+  resourceType: "image" | "video";
 }
 
 /** Validate an upload request before issuing a signed URL. */
@@ -92,71 +84,30 @@ export async function createSignedUpload(req: MediaUploadRequest): Promise<Signe
   }
 
   const isImage = req.mimeType.startsWith("image/");
+  const resourceType = isImage ? "image" : "video";
   const folder = "trivenix-partners";
-
-  // Build signed upload options (never expose secret to client)
-  const uploadOptions: Record<string, unknown> = {
-    folder,
-    resource_type: isImage ? "image" : "video",
-    timeout: 120_000,
-  };
-
-  if (isImage) {
-    uploadOptions["transformation"] = [
-      { quality: "auto:good", fetch_format: "auto" },
-    ];
-  } else {
-    uploadOptions["transformation"] = [
-      { quality: "auto:good", fetch_format: "auto" },
-    ];
-  }
 
   // Generate a signed upload preset via Cloudinary API signature
   const timestamp = Math.floor(Date.now() / 1000);
   const signature = cloudinary.utils.api_sign_request(
-    {
-      timestamp,
-      folder,
-      resource_type: isImage ? "image" : "video",
-    },
+    { timestamp, folder },
     process.env.CLOUDINARY_API_SECRET!,
   );
 
-  const uploadUrl = `https://api.cloudinary.com/v1_1/${process.env.CLOUDINARY_CLOUD_NAME}/upload`;
-
-  // Record a placeholder asset so we have a durable record even before upload completes
-  const [asset] = await db.insert(mediaAssetsTable).values({
-    fileName: req.fileName,
-    mimeType: req.mimeType,
-    fileSize: req.fileSize,
-    url: "", // placeholder; updated after successful upload via webhook or manual confirmation
-    secureUrl: null,
-    publicId: null,
-    provider: "cloudinary",
-    width: null,
-    height: null,
-    duration: null,
-    caption: req.caption ?? null,
-  }).returning();
-
+  const uploadUrl = `https://api.cloudinary.com/v1_1/${process.env.CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`;
   return {
     uploadUrl,
-    asset: {
-      ...asset,
-      url: asset.url,
-      secureUrl: asset.secureUrl,
-      publicId: asset.publicId,
-      provider: asset.provider,
-      width: asset.width,
-      height: asset.height,
-      duration: asset.duration,
-      caption: asset.caption,
-    },
+    apiKey: process.env.CLOUDINARY_API_KEY!,
+    signature,
+    timestamp,
+    folder,
+    resourceType,
   };
 }
 
-/** Confirm an uploaded asset (called after successful client-side upload to Cloudinary). */
+/** Persist media metadata after a successful signed Cloudinary upload. */
 export async function confirmUploadedAsset(params: {
+  caption?: string | null;
   publicId: string;
   secureUrl: string;
   width?: number | null;
@@ -167,19 +118,20 @@ export async function confirmUploadedAsset(params: {
   fileName: string;
 }) {
   const [asset] = await db
-    .update(mediaAssetsTable)
-    .set({
+    .insert(mediaAssetsTable)
+    .values({
+      fileName: params.fileName,
+      mimeType: params.mimeType,
+      fileSize: params.fileSize,
       url: params.secureUrl,
       secureUrl: params.secureUrl,
       publicId: params.publicId,
+      provider: "cloudinary",
       width: params.width ?? null,
       height: params.height ?? null,
       duration: params.duration ?? null,
-      mimeType: params.mimeType,
-      fileSize: params.fileSize,
-      fileName: params.fileName,
+      caption: params.caption ?? null,
     })
-    .where(eq(mediaAssetsTable.publicId, params.publicId))
     .returning();
   return asset;
 }

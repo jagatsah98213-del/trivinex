@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { rateLimit } from "express-rate-limit";
 import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
@@ -73,6 +74,8 @@ import {
   DeleteAdminProjectParams,
   CreateMediaUploadBody,
   CreateMediaUploadResponse,
+  ConfirmMediaUploadBody,
+  ConfirmMediaUploadResponse,
 } from "@workspace/api-zod";
 import { requireRole, requireCsrf } from "../lib/auth";
 import { recordAuditLog } from "../lib/auditLog";
@@ -80,6 +83,55 @@ import { verifyEmailConfig, sendEmail } from "../lib/email";
 import { ensureCsrfToken } from "../lib/session";
 
 const router: IRouter = Router();
+
+// The first admin must be bootstrapped before admin-only middleware is applied.
+// Once any admin exists, this endpoint becomes permanently unavailable.
+const bootstrapLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+router.post("/admin/bootstrap", bootstrapLimiter, async (_req, res) => {
+  const rawEmail = process.env.ADMIN_BOOTSTRAP_EMAIL?.trim();
+  const bootstrapPassword = process.env.ADMIN_BOOTSTRAP_PASSWORD;
+  if (!rawEmail || !bootstrapPassword) {
+    res.status(400).json({ message: "Bootstrap not configured" });
+    return;
+  }
+
+  const email = rawEmail.toLowerCase();
+  if (!z.string().email().safeParse(email).success) {
+    res.status(400).json({ message: "Bootstrap email is invalid" });
+    return;
+  }
+
+  const [user] = await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(7429384756102)`);
+    const [existingAdmin] = await tx
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(eq(usersTable.role, "ADMIN"))
+      .limit(1);
+    if (existingAdmin) return [];
+
+    const bcrypt = await import("bcryptjs");
+    const passwordHash = await bcrypt.default.hash(bootstrapPassword, 12);
+    return tx
+      .insert(usersTable)
+      .values({ email, passwordHash, role: "ADMIN" })
+      .returning();
+  });
+
+  if (!user) {
+    res.status(409).json({ message: "An admin account already exists" });
+    return;
+  }
+
+  await recordAuditLog(String(user.id), "admin.bootstrap", { adminId: user.id });
+  res.status(201).json({ id: user.id, email: user.email, role: user.role });
+});
 
 router.use("/admin", requireRole("ADMIN"));
 
@@ -613,6 +665,21 @@ router.post("/admin/media/upload", async (req, res) => {
   }
 });
 
+router.post("/admin/media/confirm", async (req, res) => {
+  const body = ConfirmMediaUploadBody.parse(req.body);
+  try {
+    const { confirmUploadedAsset } = await import("../lib/media");
+    const asset = await confirmUploadedAsset(body);
+    await recordAuditLog(String(req.session.userId), "media.upload", {
+      mediaAssetId: asset.id,
+    });
+    res.status(200).json(ConfirmMediaUploadResponse.parse(asset));
+  } catch (err) {
+    console.error("[media] Confirmation error:", err instanceof Error ? err.message : String(err));
+    res.status(400).json({ message: "Could not save uploaded media metadata" });
+  }
+});
+
 // ---------- Email configuration test ----------
 
 router.get("/admin/email/test", async (_req, res) => {
@@ -649,30 +716,6 @@ router.get("/admin/audit-logs", async (req, res) => {
 });
 
 // ---------- Admin user management (secure, no public registration) ----------
-
-// Bootstrap first admin if none exists (one-time, env-driven)
-router.post("/admin/bootstrap", async (_req, res) => {
-  const bootstrapEmail = process.env.ADMIN_BOOTSTRAP_EMAIL;
-  const bootstrapPassword = process.env.ADMIN_BOOTSTRAP_PASSWORD;
-  if (!bootstrapEmail || !bootstrapPassword) {
-    res.status(400).json({ message: "Bootstrap not configured" });
-    return;
-  }
-  const [existing] = await db.select().from(usersTable).where(eq(usersTable.email, bootstrapEmail.toLowerCase()));
-  if (existing) {
-    res.status(409).json({ message: "Admin already exists" });
-    return;
-  }
-  const bcrypt = await import("bcryptjs");
-  const passwordHash = await bcrypt.default.hash(bootstrapPassword, 10);
-  const [user] = await db.insert(usersTable).values({
-    email: bootstrapEmail.toLowerCase(),
-    passwordHash,
-    role: "ADMIN",
-  }).returning();
-  await recordAuditLog(String(user.id), "admin.bootstrap", { adminId: user.id });
-  res.status(201).json({ id: user.id, email: user.email, role: user.role });
-});
 
 // Provide CSRF token for authenticated admin
 router.get("/admin/csrf-token", requireRole("ADMIN"), (req, res) => {

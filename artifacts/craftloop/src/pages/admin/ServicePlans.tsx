@@ -73,7 +73,7 @@ export default function AdminServicePlans() {
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<{ id: number } | null>(null);
-  const form = useForm<z.infer<typeof planSchema>>({
+  const form = useForm<z.input<typeof planSchema>, any, z.output<typeof planSchema>>({
     resolver: zodResolver(planSchema),
     defaultValues: {
       serviceId: 0,

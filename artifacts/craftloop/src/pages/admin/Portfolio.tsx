@@ -12,6 +12,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { CloudinaryUpload } from "@/components/CloudinaryUpload";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -62,7 +63,7 @@ export default function AdminPortfolio() {
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<{ id: number } | null>(null);
-  const form = useForm<z.infer<typeof portfolioSchema>>({
+  const form = useForm<z.input<typeof portfolioSchema>, any, z.output<typeof portfolioSchema>>({
     resolver: zodResolver(portfolioSchema),
     defaultValues: {
       serviceCategory: ServiceCategory.WEB_DEVELOPMENT,
@@ -302,7 +303,21 @@ export default function AdminPortfolio() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Media URL</FormLabel>
-                    <FormControl><Input placeholder="https://..." {...field} /></FormControl>
+                    <FormControl>
+                      <div className="space-y-2">
+                        <Input placeholder="https://..." {...field} />
+                        <CloudinaryUpload
+                          accept="image/*,video/mp4,video/webm,video/quicktime"
+                          onUploaded={({ url, resourceType }) => {
+                            field.onChange(url);
+                            form.setValue("mediaType", resourceType, {
+                              shouldDirty: true,
+                              shouldValidate: true,
+                            });
+                          }}
+                        />
+                      </div>
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -313,7 +328,15 @@ export default function AdminPortfolio() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Thumbnail URL (optional)</FormLabel>
-                    <FormControl><Input placeholder="https://..." {...field} /></FormControl>
+                    <FormControl>
+                      <div className="space-y-2">
+                        <Input placeholder="https://..." {...field} />
+                        <CloudinaryUpload
+                          accept="image/*"
+                          onUploaded={({ url }) => field.onChange(url)}
+                        />
+                      </div>
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

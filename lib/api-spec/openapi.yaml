@@ -870,6 +870,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /admin/media/confirm:
+    post:
+      operationId: confirmMediaUpload
+      tags:
+      - media
+      summary: Save metadata after a successful Cloudinary upload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaUploadConfirmInput'
+      responses:
+        '200':
+          description: Saved media asset
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAsset'
+        '400':
+          description: Invalid upload metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   schemas:
     HealthStatus:
@@ -2283,12 +2308,66 @@ components:
       type: object
       required:
       - uploadUrl
-      - asset
+      - apiKey
+      - signature
+      - timestamp
+      - folder
+      - resourceType
       properties:
         uploadUrl:
           type: string
-        asset:
-          $ref: '#/components/schemas/MediaAsset'
+        apiKey:
+          type: string
+        signature:
+          type: string
+        timestamp:
+          type: integer
+        folder:
+          type: string
+        resourceType:
+          type: string
+          enum:
+          - image
+          - video
+    MediaUploadConfirmInput:
+      type: object
+      required:
+      - fileName
+      - mimeType
+      - fileSize
+      - publicId
+      - secureUrl
+      properties:
+        fileName:
+          type: string
+          minLength: 1
+        mimeType:
+          type: string
+        fileSize:
+          type: integer
+          minimum: 1
+        publicId:
+          type: string
+          minLength: 1
+        secureUrl:
+          type: string
+          format: uri
+        width:
+          type:
+          - integer
+          - 'null'
+        height:
+          type:
+          - integer
+          - 'null'
+        duration:
+          type:
+          - integer
+          - 'null'
+        caption:
+          type:
+          - string
+          - 'null'
     MediaAsset:
       type: object
       required:

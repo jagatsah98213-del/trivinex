@@ -12,6 +12,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { CloudinaryUpload } from "@/components/CloudinaryUpload";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -64,7 +65,7 @@ export default function AdminTestimonials() {
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<{ id: number } | null>(null);
-  const form = useForm<z.infer<typeof testimonialSchema>>({
+  const form = useForm<z.input<typeof testimonialSchema>, any, z.output<typeof testimonialSchema>>({
     resolver: zodResolver(testimonialSchema),
     defaultValues: {
       clientName: "",
@@ -288,7 +289,15 @@ export default function AdminTestimonials() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Avatar URL (optional)</FormLabel>
-                    <FormControl><Input placeholder="https://..." {...field} /></FormControl>
+                    <FormControl>
+                      <div className="space-y-2">
+                        <Input placeholder="https://..." {...field} />
+                        <CloudinaryUpload
+                          accept="image/*"
+                          onUploaded={({ url }) => field.onChange(url)}
+                        />
+                      </div>
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -320,7 +329,21 @@ export default function AdminTestimonials() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Video URL</FormLabel>
-                    <FormControl><Input placeholder="YouTube URL or media URL" {...field} /></FormControl>
+                    <FormControl>
+                      <div className="space-y-2">
+                        <Input placeholder="YouTube URL or media URL" {...field} />
+                        <CloudinaryUpload
+                          accept="video/mp4,video/webm,video/quicktime"
+                          onUploaded={({ url }) => {
+                            field.onChange(url);
+                            form.setValue("videoSource", "upload", {
+                              shouldDirty: true,
+                              shouldValidate: true,
+                            });
+                          }}
+                        />
+                      </div>
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
