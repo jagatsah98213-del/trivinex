@@ -19,7 +19,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -147,11 +147,9 @@ export default function AdminTestimonials() {
             Manage text and video testimonials with live demo links.
           </p>
         </div>
-        <DialogTrigger asChild>
-          <Button variant="outline" onClick={() => { setEditing(null); form.reset(); setOpen(true); }}>
-            <Plus className="w-4 h-4 mr-2" /> Add Testimonial
-          </Button>
-        </DialogTrigger>
+        <Button variant="outline" onClick={() => { setEditing(null); form.reset(); setOpen(true); }}>
+          <Plus className="w-4 h-4 mr-2" /> Add Testimonial
+        </Button>
       </div>
 
       <Table>
@@ -195,11 +193,9 @@ export default function AdminTestimonials() {
               </TableCell>
               <TableCell className="text-sm">{t.sortOrder}</TableCell>
               <TableCell>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" onClick={() => { setEditing({ id: t.id }); form.reset(t as any); setOpen(true); }}>
-                    <Edit className="w-4 h-4 mr-1" />
-                  </Button>
-                </DialogTrigger>{" "}
+                <Button variant="outline" size="sm" onClick={() => { setEditing({ id: t.id }); form.reset(t as any); setOpen(true); }}>
+                  <Edit className="w-4 h-4 mr-1" />
+                </Button>{" "}
                 <Button
                   variant="destructive"
                   size="sm"

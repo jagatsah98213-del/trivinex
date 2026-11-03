@@ -20,7 +20,8 @@ Add credentials in Replit Secrets, not in source files:
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`: SMTP delivery. `SMTP_FROM`
   and `ADMIN_EMAIL` are optional and default to `SMTP_USER`.
 - `GEMINI_API_KEY`: server-side Gemini access. The default model is
-  `gemini-3.8-flash`; optionally override it with `GEMINI_MODEL`.
+  `gemini-3.5-flash-lite`; on a 503/504 it retries with `gemini-3.8-flash`.
+  Optionally override them with `GEMINI_MODEL` and `GEMINI_FALLBACK_MODEL`.
 
 ## Database and first admin
 

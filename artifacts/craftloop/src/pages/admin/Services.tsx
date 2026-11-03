@@ -48,7 +48,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -183,11 +182,9 @@ export default function AdminServices() {
             Manage the eight service divisions and their details.
           </p>
         </div>
-        <DialogTrigger asChild>
-          <Button variant="outline" onClick={() => { setEditing(null); form.reset(); setOpen(true); }}>
-            <Plus className="w-4 h-4 mr-2" /> Add Service
-          </Button>
-        </DialogTrigger>
+        <Button variant="outline" onClick={() => { setEditing(null); form.reset(); setOpen(true); }}>
+          <Plus className="w-4 h-4 mr-2" /> Add Service
+        </Button>
       </div>
 
       <Table>
@@ -219,11 +216,9 @@ export default function AdminServices() {
               </TableCell>
               <TableCell className="text-sm">{s.sortOrder}</TableCell>
               <TableCell>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" onClick={() => { setEditing({ id: s.id }); form.reset(s as any); setOpen(true); }}>
-                    <Edit className="w-4 h-4 mr-1" /> Edit
-                  </Button>
-                </DialogTrigger>{" "}
+                <Button variant="outline" size="sm" onClick={() => { setEditing({ id: s.id }); form.reset(s as any); setOpen(true); }}>
+                  <Edit className="w-4 h-4 mr-1" /> Edit
+                </Button>{" "}
                 <Button
                   variant="destructive"
                   size="sm"

@@ -45,6 +45,12 @@ import { requireCsrf } from "../lib/auth";
 import { ensureCsrfToken } from "../lib/session";
 
 const router: IRouter = Router();
+const PUBLIC_SITE_SETTING_KEYS = [
+  "site_title",
+  "contact_email",
+  "contact_phone",
+  "contact_whatsapp",
+] as const;
 const isProd = process.env["NODE_ENV"] === "production";
 const adminEmail = () => process.env.ADMIN_EMAIL || process.env.SMTP_USER;
 
@@ -150,7 +156,10 @@ router.get("/public/meeting-slots", async (_req, res) => {
 });
 
 router.get("/public/site-settings", async (_req, res) => {
-  const rows = await db.select().from(siteSettingsTable);
+  const rows = await db
+    .select()
+    .from(siteSettingsTable)
+    .where(inArray(siteSettingsTable.key, PUBLIC_SITE_SETTING_KEYS));
   const settings: Record<string, string> = {};
   for (const row of rows) settings[row.key] = row.value;
   res.json(settings);

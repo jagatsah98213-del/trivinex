@@ -19,7 +19,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -144,11 +144,9 @@ export default function AdminPortfolio() {
             Manage portfolio items and case studies with live demo links.
           </p>
         </div>
-        <DialogTrigger asChild>
-          <Button variant="outline" onClick={() => { setEditing(null); form.reset(); setOpen(true); }}>
-            <Plus className="w-4 h-4 mr-2" /> Add Portfolio Item
-          </Button>
-        </DialogTrigger>
+        <Button variant="outline" onClick={() => { setEditing(null); form.reset(); setOpen(true); }}>
+          <Plus className="w-4 h-4 mr-2" /> Add Portfolio Item
+        </Button>
       </div>
 
       <Table>
@@ -189,11 +187,9 @@ export default function AdminPortfolio() {
               </TableCell>
               <TableCell className="text-sm">{item.sortOrder}</TableCell>
               <TableCell>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" onClick={() => { setEditing({ id: item.id }); form.reset(item as any); setOpen(true); }}>
-                    <Edit className="w-4 h-4 mr-1" />
-                  </Button>
-                </DialogTrigger>{" "}
+                <Button variant="outline" size="sm" onClick={() => { setEditing({ id: item.id }); form.reset(item as any); setOpen(true); }}>
+                  <Edit className="w-4 h-4 mr-1" />
+                </Button>{" "}
                 <Button
                   variant="destructive"
                   size="sm"

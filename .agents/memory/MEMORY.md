@@ -1,0 +1,1 @@
+- [OpenAPI generation compatibility](openapi-codegen.md) — Node 20 needs a `Map.groupBy` shim with current Orval; keep generated output on Zod 3 and React Query 5.

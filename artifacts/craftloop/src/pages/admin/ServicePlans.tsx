@@ -23,7 +23,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -173,11 +173,9 @@ export default function AdminServicePlans() {
         ) : (
           <>
             <div className="flex items-center justify-between mb-4">
-              <DialogTrigger asChild>
-                <Button variant="outline" onClick={() => { setEditing(null); form.reset({ serviceId }); setOpen(true); }}>
-                  <Plus className="w-4 h-4 mr-2" /> Add Plan
-                </Button>
-              </DialogTrigger>
+              <Button variant="outline" onClick={() => { setEditing(null); form.reset({ serviceId }); setOpen(true); }}>
+                <Plus className="w-4 h-4 mr-2" /> Add Plan
+              </Button>
             </div>
 
             <Table>
@@ -219,11 +217,9 @@ export default function AdminServicePlans() {
                         {p.isActive ? <ToggleRight className="w-3 h-3 mr-1" /> : <ToggleLeft className="w-3 h-3 mr-1" />}
                         {p.isActive ? " Active" : " Draft"}
                       </Button>{" "}
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" onClick={() => { setEditing({ id: p.id }); form.reset(p as any); setOpen(true); }}>
-                          <Edit className="w-3 h-3 mr-1" />
-                        </Button>
-                      </DialogTrigger>{" "}
+                      <Button variant="outline" size="sm" onClick={() => { setEditing({ id: p.id }); form.reset(p as any); setOpen(true); }}>
+                        <Edit className="w-3 h-3 mr-1" />
+                      </Button>{" "}
                       <Button
                         variant="destructive"
                         size="sm"

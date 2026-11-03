@@ -8,7 +8,14 @@ import {
   testimonialsTable,
   portfolioItemsTable,
 } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
+
+const PUBLIC_AI_SETTING_KEYS = [
+  "site_title",
+  "contact_email",
+  "contact_phone",
+  "contact_whatsapp",
+] as const;
 
 /**
  * Build a curated public knowledge context from published database records.
@@ -20,7 +27,10 @@ async function buildKnowledgeContext(pageContext?: string): Promise<string> {
 
   // Site settings (contact info, social links)
   try {
-    const settings = await db.select().from(siteSettingsTable);
+    const settings = await db
+      .select()
+      .from(siteSettingsTable)
+      .where(inArray(siteSettingsTable.key, PUBLIC_AI_SETTING_KEYS));
     const settingsMap: Record<string, string> = {};
     for (const row of settings) settingsMap[row.key] = row.value;
     if (Object.keys(settingsMap).length > 0) {
@@ -164,11 +174,24 @@ Current page context: ${pageContext ?? "homepage"}
 Approved public knowledge:
 ${knowledge || "No specific knowledge base content available."}`;
 
-    const genAI = new GoogleGenAI({ apiKey });
-    const result = await genAI.models.generateContent({
-      model: process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash",
-      contents: message,
-      config: { systemInstruction },
+    const genAI = new GoogleGenAI({
+      apiKey,
+      httpOptions: { timeout: 15_000 },
+    });
+    const primaryModel = process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash-lite";
+    const fallbackModel = process.env.GEMINI_FALLBACK_MODEL?.trim() || "gemini-3.8-flash";
+    const generate = (model: string) =>
+      genAI.models.generateContent({
+        model,
+        contents: message,
+        config: { systemInstruction },
+      });
+    const result = await generate(primaryModel).catch(async (error: unknown) => {
+      if (![503, 504].includes(getGeminiHttpStatus(error) ?? 0) || primaryModel === fallbackModel) {
+        throw error;
+      }
+      console.warn(`[ai] ${primaryModel} is unavailable; retrying with ${fallbackModel}.`);
+      return generate(fallbackModel);
     });
     const text = result.text?.trim();
 
@@ -181,6 +204,28 @@ ${knowledge || "No specific knowledge base content available."}`;
     console.error("[ai] Gemini error:", errMsg);
     return "I'm having trouble connecting to my knowledge base right now. Please visit our contact page to reach Trivenix Partners directly, or check our FAQs and services pages for information.";
   }
+}
+
+function getGeminiHttpStatus(error: unknown): number | null {
+  if (error && typeof error === "object") {
+    const candidate = error as { status?: unknown; statusCode?: unknown; code?: unknown };
+    for (const value of [candidate.status, candidate.statusCode, candidate.code]) {
+      const status = Number(value);
+      if (Number.isInteger(status) && status >= 400 && status <= 599) return status;
+    }
+  }
+
+  const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  if (message) {
+    try {
+      const payload = JSON.parse(message) as { error?: { code?: unknown } };
+      const status = Number(payload.error?.code);
+      if (Number.isInteger(status) && status >= 400 && status <= 599) return status;
+    } catch {
+      // Non-JSON provider errors are not eligible for a model fallback.
+    }
+  }
+  return null;
 }
 
 export function isAiConfigured(): boolean {
