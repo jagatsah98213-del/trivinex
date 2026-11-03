@@ -185,8 +185,11 @@ export default function Quote() {
                     <FormItem>
                       <FormLabel className="font-semibold text-[#1D1D1F]">Service Needed (optional)</FormLabel>
                       <Select
-                        onValueChange={(v) => { field.onChange(v || undefined); form.setValue("servicePlanId", undefined); }}
-                        defaultValue={field.value}
+                        onValueChange={(v) => {
+                          field.onChange(v === "__GENERAL__" ? undefined : v);
+                          form.setValue("servicePlanId", undefined);
+                        }}
+                        value={field.value ?? "__GENERAL__"}
                       >
                         <FormControl>
                           <SelectTrigger className="h-12 rounded-xl border-[#E8E8ED]">
@@ -194,7 +197,7 @@ export default function Quote() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">Not sure yet — general inquiry</SelectItem>
+                          <SelectItem value="__GENERAL__">Not sure yet — general inquiry</SelectItem>
                           <SelectItem value="WEB_DEVELOPMENT">Web Development</SelectItem>
                           <SelectItem value="VIDEO_EDITING">Video Editing</SelectItem>
                           <SelectItem value="PHOTOGRAPHY">Photography</SelectItem>

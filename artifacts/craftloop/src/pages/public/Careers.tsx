@@ -344,7 +344,10 @@ export default function Careers() {
                   className="w-full h-14 rounded-xl text-base font-bold bg-[#1D1D1F] text-white flex items-center justify-center gap-2 hover:bg-blue-600 transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed shadow-lg"
                 >
                   {isPending ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Submitting application…
+                    </>
                   ) : (
                     <>Submit Application <ArrowRight className="w-4 h-4" /></>
                   )}

@@ -373,7 +373,7 @@ export interface ClientInquiry {
   phone?: string | null;
   /** @nullable */
   business?: string | null;
-  serviceNeeded: ServiceCategory;
+  serviceNeeded: ServiceCategory | null;
   projectDetails: string;
   /** @nullable */
   budgetRange?: string | null;
@@ -745,6 +745,7 @@ export interface ProjectUpdate {
 export interface ConvertInquiryInput {
   /** @minLength 1 */
   title: string;
+  serviceCategory?: ServiceCategory;
   description?: string;
   deadline?: string;
 }

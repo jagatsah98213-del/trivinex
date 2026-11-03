@@ -19,6 +19,9 @@ function getTransport(): Transporter | null {
       port: Number(process.env.SMTP_PORT) || 587,
       secure: isSecure,
       auth: { user: SMTP_USER, pass: SMTP_PASS },
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 20_000,
       // Never disable certificate verification in production.
       tls: { rejectUnauthorized: true },
     });
@@ -60,12 +63,19 @@ export async function sendEmail(to: string, subject: string, html: string, text?
       html,
       text: text || stripHtml(html),
     });
-    console.info(`[email] Sent "${subject}" → ${to} (messageId: ${info.messageId})`);
+    if (Array.isArray(info.accepted) && info.accepted.length === 0) {
+      console.warn("[email] SMTP server did not accept the recipient", { subject });
+      return { success: false, error: "SMTP server did not accept recipient" };
+    }
+    console.info("[email] SMTP server accepted a message", { messageId: info.messageId });
     return { success: true };
   } catch (err) {
-    // Log a sanitized error — never include credentials, full message content, or secrets.
-    console.error("[email] Failed to send email:", { to, subject, error: err instanceof Error ? err.message : String(err) });
-    return { success: false, error: err instanceof Error ? err.message : String(err) };
+    // Keep recipient addresses and message content out of application logs.
+    const code = err && typeof err === "object" && "code" in err
+      ? String((err as { code?: unknown }).code ?? "unknown")
+      : "unknown";
+    console.error("[email] SMTP send failed", { code, subject });
+    return { success: false, error: `SMTP send failed (${code})` };
   }
 }
 

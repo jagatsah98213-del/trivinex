@@ -204,7 +204,7 @@ export const CreateInquiryResponse = zod.object({
   "email": zod.string(),
   "phone": zod.string().nullish(),
   "business": zod.string().nullish(),
-  "serviceNeeded": zod.enum(['WEB_DEVELOPMENT', 'VIDEO_EDITING', 'PHOTOGRAPHY', 'VIDEOGRAPHY', 'GRAPHIC_DESIGN', 'SCRIPT_CONTENT_WRITING', 'SEO', 'DIGITAL_MARKETING', 'PHOTOGRAPHY_VIDEOGRAPHY', 'SEO_DIGITAL_MARKETING', 'CONTENT_WRITING']),
+  "serviceNeeded": zod.union([zod.enum(['WEB_DEVELOPMENT', 'VIDEO_EDITING', 'PHOTOGRAPHY', 'VIDEOGRAPHY', 'GRAPHIC_DESIGN', 'SCRIPT_CONTENT_WRITING', 'SEO', 'DIGITAL_MARKETING', 'PHOTOGRAPHY_VIDEOGRAPHY', 'SEO_DIGITAL_MARKETING', 'CONTENT_WRITING']),zod.null()]),
   "projectDetails": zod.string(),
   "budgetRange": zod.string().nullish(),
   "currency": zod.string().nullish(),
@@ -404,7 +404,7 @@ export const ListAdminInquiriesResponseItem = zod.object({
   "email": zod.string(),
   "phone": zod.string().nullish(),
   "business": zod.string().nullish(),
-  "serviceNeeded": zod.enum(['WEB_DEVELOPMENT', 'VIDEO_EDITING', 'PHOTOGRAPHY', 'VIDEOGRAPHY', 'GRAPHIC_DESIGN', 'SCRIPT_CONTENT_WRITING', 'SEO', 'DIGITAL_MARKETING', 'PHOTOGRAPHY_VIDEOGRAPHY', 'SEO_DIGITAL_MARKETING', 'CONTENT_WRITING']),
+  "serviceNeeded": zod.union([zod.enum(['WEB_DEVELOPMENT', 'VIDEO_EDITING', 'PHOTOGRAPHY', 'VIDEOGRAPHY', 'GRAPHIC_DESIGN', 'SCRIPT_CONTENT_WRITING', 'SEO', 'DIGITAL_MARKETING', 'PHOTOGRAPHY_VIDEOGRAPHY', 'SEO_DIGITAL_MARKETING', 'CONTENT_WRITING']),zod.null()]),
   "projectDetails": zod.string(),
   "budgetRange": zod.string().nullish(),
   "currency": zod.string().nullish(),
@@ -447,7 +447,7 @@ export const UpdateAdminInquiryResponse = zod.object({
   "email": zod.string(),
   "phone": zod.string().nullish(),
   "business": zod.string().nullish(),
-  "serviceNeeded": zod.enum(['WEB_DEVELOPMENT', 'VIDEO_EDITING', 'PHOTOGRAPHY', 'VIDEOGRAPHY', 'GRAPHIC_DESIGN', 'SCRIPT_CONTENT_WRITING', 'SEO', 'DIGITAL_MARKETING', 'PHOTOGRAPHY_VIDEOGRAPHY', 'SEO_DIGITAL_MARKETING', 'CONTENT_WRITING']),
+  "serviceNeeded": zod.union([zod.enum(['WEB_DEVELOPMENT', 'VIDEO_EDITING', 'PHOTOGRAPHY', 'VIDEOGRAPHY', 'GRAPHIC_DESIGN', 'SCRIPT_CONTENT_WRITING', 'SEO', 'DIGITAL_MARKETING', 'PHOTOGRAPHY_VIDEOGRAPHY', 'SEO_DIGITAL_MARKETING', 'CONTENT_WRITING']),zod.null()]),
   "projectDetails": zod.string(),
   "budgetRange": zod.string().nullish(),
   "currency": zod.string().nullish(),
@@ -473,6 +473,7 @@ export const ConvertInquiryToProjectParams = zod.object({
 
 export const ConvertInquiryToProjectBody = zod.object({
   "title": zod.string().min(1),
+  "serviceCategory": zod.enum(['WEB_DEVELOPMENT', 'VIDEO_EDITING', 'PHOTOGRAPHY', 'VIDEOGRAPHY', 'GRAPHIC_DESIGN', 'SCRIPT_CONTENT_WRITING', 'SEO', 'DIGITAL_MARKETING', 'PHOTOGRAPHY_VIDEOGRAPHY', 'SEO_DIGITAL_MARKETING', 'CONTENT_WRITING']).optional(),
   "description": zod.string().optional(),
   "deadline": zod.coerce.date().optional()
 })

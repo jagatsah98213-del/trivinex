@@ -409,6 +409,12 @@ paths:
             schema:
               $ref: '#/components/schemas/ConvertInquiryInput'
       responses:
+        '200':
+          description: Inquiry was already converted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
         '201':
           description: Project created
           content:
@@ -1476,7 +1482,9 @@ components:
           - string
           - 'null'
         serviceNeeded:
-          $ref: '#/components/schemas/ServiceCategory'
+          anyOf:
+          - $ref: '#/components/schemas/ServiceCategory'
+          - type: 'null'
         projectDetails:
           type: string
         budgetRange:
@@ -2092,6 +2100,8 @@ components:
         title:
           type: string
           minLength: 1
+        serviceCategory:
+          $ref: '#/components/schemas/ServiceCategory'
         description:
           type: string
         deadline:

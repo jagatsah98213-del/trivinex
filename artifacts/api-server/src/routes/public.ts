@@ -188,9 +188,6 @@ router.post("/public/inquiries", inquiryLimiter, async (req, res) => {
     return;
   }
 
-  let emailStatus: "not_sent" | "sent" | "failed" = "not_sent";
-  let emailError: string | null = null;
-
   const [inquiry] = await db
     .insert(clientInquiriesTable)
     .values({
@@ -208,48 +205,61 @@ router.post("/public/inquiries", inquiryLimiter, async (req, res) => {
     })
     .returning();
 
-  // Send emails non-blocking. Persist first so we never lose the inquiry.
+  // Persist and acknowledge the inquiry first; SMTP must never hold a public form open.
   const adminEmailValue = adminEmail();
   if (adminEmailValue) {
-    const clientResult = await sendEmail(
-      inquiry.email,
-      "We've Received Your Request — Trivenix Partners",
-      clientInquiryConfirmationEmail(inquiry.name, inquiry.serviceNeeded),
-    );
-    const adminResult = await sendEmail(
-      adminEmailValue,
-      `New Quote Request from ${inquiry.name}`,
-      inquiryAdminNotificationEmail({
-        id: inquiry.id,
-        name: inquiry.name,
-        email: inquiry.email,
-        phone: inquiry.phone,
-        serviceNeeded: inquiry.serviceNeeded,
-        projectDetails: inquiry.projectDetails,
-        budgetRange: inquiry.budgetRange,
-        timeline: inquiry.timeline,
-      }),
-    );
-
-    if (clientResult.success && adminResult.success) {
-      emailStatus = "sent";
-    } else {
-      emailStatus = "failed";
-      emailError = (clientResult.error || adminResult.error) || null;
-    }
-  } else {
-    emailError = "SMTP not configured";
+    void Promise.all([
+      sendEmail(
+        inquiry.email,
+        "We've Received Your Request — Trivenix Partners",
+        clientInquiryConfirmationEmail(inquiry.name, inquiry.serviceNeeded),
+      ),
+      sendEmail(
+        adminEmailValue,
+        `New Quote Request from ${inquiry.name}`,
+        inquiryAdminNotificationEmail({
+          id: inquiry.id,
+          name: inquiry.name,
+          email: inquiry.email,
+          phone: inquiry.phone,
+          serviceNeeded: inquiry.serviceNeeded,
+          projectDetails: inquiry.projectDetails,
+          budgetRange: inquiry.budgetRange,
+          timeline: inquiry.timeline,
+        }),
+      ),
+    ])
+      .then(async ([clientResult, adminResult]) => {
+        const emailStatus = clientResult.success && adminResult.success ? "sent" : "failed";
+        if (emailStatus === "failed") {
+          console.warn("[inquiry] One or more notification emails were not accepted", {
+            inquiryId: inquiry.id,
+            clientAccepted: clientResult.success,
+            adminAccepted: adminResult.success,
+          });
+        }
+        await db
+          .update(clientInquiriesTable)
+          .set({ emailStatus, emailSentAt: emailStatus === "sent" ? new Date() : null })
+          .where(eq(clientInquiriesTable.id, inquiry.id));
+      })
+      .catch((error) => {
+        console.error("[inquiry] Could not deliver or record notification emails", {
+          inquiryId: inquiry.id,
+          error: error instanceof Error ? error.name : "UnknownError",
+        });
+        return db
+          .update(clientInquiriesTable)
+          .set({ emailStatus: "failed", emailSentAt: null })
+          .where(eq(clientInquiriesTable.id, inquiry.id))
+          .catch(() => undefined);
+      });
   }
-
-  await db
-    .update(clientInquiriesTable)
-    .set({ emailStatus, emailSentAt: emailStatus === "sent" ? new Date() : null })
-    .where(eq(clientInquiriesTable.id, inquiry.id));
 
   res.status(201).json(
     CreateInquiryResponse.parse({
       ...inquiry,
-      emailStatus,
+      emailStatus: "not_sent",
     }),
   );
 });
@@ -299,36 +309,45 @@ router.post("/public/applicants", inquiryLimiter, async (req, res) => {
     } as any)
     .returning();
 
-  // Send confirmation email to applicant + admin notification (non-blocking)
+  // Send emails in the background so a slow SMTP server cannot leave the form pending.
   const adminEmailValue = adminEmail();
   if (adminEmailValue) {
-    const clientResult = await sendEmail(
-      applicant.email,
-      "Your application has been received — Trivenix Partners",
-      freelancerApplicationConfirmationEmail(applicant.fullName, applicant.serviceCategory),
-    );
-    const adminResult = await sendEmail(
-      adminEmailValue,
-      `New Freelancer Application from ${applicant.fullName}`,
-      applicantAdminNotificationEmail({
-        id: applicant.id,
-        fullName: applicant.fullName,
-        email: applicant.email,
-        phone: applicant.phone,
-        serviceCategory: applicant.serviceCategory,
-        yearsExperience: applicant.yearsExperience,
-        availability: applicant.availability,
-        expectedRate: applicant.expectedRate,
-        coverNote: applicant.coverNote,
-        resumeUrl: applicant.resumeUrl,
-      }),
-    );
-    if (!clientResult.success || !adminResult.success) {
-      console.warn("[applicant] Email delivery partially failed:", {
-        client: clientResult.error,
-        admin: adminResult.error,
+    void Promise.all([
+      sendEmail(
+        applicant.email,
+        "Your application has been received — Trivenix Partners",
+        freelancerApplicationConfirmationEmail(applicant.fullName, applicant.serviceCategory),
+      ),
+      sendEmail(
+        adminEmailValue,
+        `New Freelancer Application from ${applicant.fullName}`,
+        applicantAdminNotificationEmail({
+          id: applicant.id,
+          fullName: applicant.fullName,
+          email: applicant.email,
+          phone: applicant.phone,
+          serviceCategory: applicant.serviceCategory,
+          yearsExperience: applicant.yearsExperience,
+          availability: applicant.availability,
+          expectedRate: applicant.expectedRate,
+          coverNote: applicant.coverNote,
+          resumeUrl: applicant.resumeUrl,
+        }),
+      ),
+    ]).then(([clientResult, adminResult]) => {
+      if (!clientResult.success || !adminResult.success) {
+        console.warn("[applicant] One or more notification emails were not accepted", {
+          applicantId: applicant.id,
+          clientAccepted: clientResult.success,
+          adminAccepted: adminResult.success,
+        });
+      }
+    }).catch((error) => {
+      console.error("[applicant] Could not deliver notification emails", {
+        applicantId: applicant.id,
+        error: error instanceof Error ? error.name : "UnknownError",
       });
-    }
+    });
   }
 
   res.status(201).json({

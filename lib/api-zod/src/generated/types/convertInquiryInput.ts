@@ -5,10 +5,12 @@
  * Trivenix Partners digital services agency API
  * OpenAPI spec version: 0.1.0
  */
+import type { ServiceCategory } from './serviceCategory';
 
 export interface ConvertInquiryInput {
   /** @minLength 1 */
   title: string;
+  serviceCategory?: ServiceCategory;
   description?: string;
   deadline?: Date;
 }
