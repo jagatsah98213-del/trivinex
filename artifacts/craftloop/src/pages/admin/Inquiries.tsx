@@ -55,7 +55,7 @@ export default function Inquiries() {
     const inq = inquiries?.find(i => i.id === id);
     if (inq) {
       form.reset({
-        title: `${inq.serviceNeeded.replace(/_/g, " ")} Project for ${inq.name}`,
+        title: `${(inq.serviceNeeded ?? "General").replace(/_/g, " ")} Project for ${inq.name}`,
         description: inq.projectDetails,
         deadline: ""
       });
@@ -129,7 +129,7 @@ export default function Inquiries() {
                       <div className="text-sm text-muted-foreground">{inq.email}</div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="font-semibold">{inq.serviceNeeded.replace(/_/g, " ")}</Badge>
+                      <Badge variant="outline" className="font-semibold">{(inq.serviceNeeded ?? "Not specified").replace(/_/g, " ")}</Badge>
                     </TableCell>
                     <TableCell>
                       <Badge className={
@@ -194,7 +194,7 @@ export default function Inquiries() {
                 </div>
                 <div>
                   <div className="text-sm font-bold text-muted-foreground mb-1">Service</div>
-                  <Badge variant="outline">{inquiry.serviceNeeded.replace(/_/g, " ")}</Badge>
+                  <Badge variant="outline">{(inquiry.serviceNeeded ?? "Not specified").replace(/_/g, " ")}</Badge>
                   {inquiry.servicePlanId && planMap.get(inquiry.servicePlanId) && (
                     <div className="text-xs text-muted-foreground mt-1.5 font-medium">
                       Plan: {planMap.get(inquiry.servicePlanId)}
