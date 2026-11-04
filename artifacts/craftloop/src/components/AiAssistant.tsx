@@ -79,14 +79,14 @@ export function AiAssistant({
 
   return (
     <div
-      className="fixed right-4 z-50 flex w-[min(25rem,calc(100vw-2rem))] flex-col items-end gap-3"
+      className="pointer-events-none fixed right-4 z-50 flex w-[min(25rem,calc(100vw-2rem))] flex-col items-end gap-3"
       style={{ bottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}
     >
       {isOpen && (
         <section
           role="dialog"
           aria-label="Trivenix Assistant"
-          className="flex w-full min-w-0 flex-col overflow-hidden rounded-[1.75rem] border border-white/65 text-[#1D1D1F] shadow-[0_24px_80px_rgba(18,35,70,0.24)] ring-1 ring-black/[0.04]"
+          className="pointer-events-auto flex w-full min-w-0 flex-col overflow-hidden rounded-[1.75rem] border border-white/65 text-[#1D1D1F] shadow-[0_24px_80px_rgba(18,35,70,0.24)] ring-1 ring-black/[0.04]"
           style={{
             height:
               "min(34rem, calc(100dvh - 6.25rem - env(safe-area-inset-bottom, 0px)))",
@@ -200,7 +200,7 @@ export function AiAssistant({
           aria-label="Open assistant"
           aria-expanded={false}
           onClick={() => setIsOpen(true)}
-          className="h-14 w-14 rounded-full border border-white/80 text-[#1D1D1F] shadow-[0_8px_28px_rgba(26,52,100,0.18)] ring-1 ring-black/[0.04] transition hover:scale-[1.04] hover:bg-white"
+          className="pointer-events-auto h-14 w-14 rounded-full border border-white/80 text-[#1D1D1F] shadow-[0_8px_28px_rgba(26,52,100,0.18)] ring-1 ring-black/[0.04] transition hover:scale-[1.04] hover:bg-white"
           style={{
             background: "rgba(255, 255, 255, 0.92)",
             backdropFilter: "blur(24px) saturate(180%)",
