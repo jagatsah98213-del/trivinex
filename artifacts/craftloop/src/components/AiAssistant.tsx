@@ -193,21 +193,23 @@ export function AiAssistant({
         </section>
       )}
 
-      <Button
-        type="button"
-        size="icon"
-        aria-label={isOpen ? "Close assistant" : "Open assistant"}
-        aria-expanded={isOpen}
-        onClick={() => setIsOpen((open) => !open)}
-        className="h-14 w-14 rounded-full border border-white/60 text-white shadow-[0_8px_28px_rgba(26,52,100,0.32)] ring-1 ring-black/[0.04] transition hover:scale-[1.04]"
-        style={{
-          background: "rgba(43, 91, 214, 0.88)",
-          backdropFilter: "blur(24px) saturate(180%)",
-          WebkitBackdropFilter: "blur(24px) saturate(180%)",
-        }}
-      >
-        {isOpen ? <X className="h-5 w-5" /> : <Bot className="h-6 w-6" />}
-      </Button>
+      {!isOpen && (
+        <Button
+          type="button"
+          size="icon"
+          aria-label="Open assistant"
+          aria-expanded={false}
+          onClick={() => setIsOpen(true)}
+          className="h-14 w-14 rounded-full border border-white/80 text-[#1D1D1F] shadow-[0_8px_28px_rgba(26,52,100,0.18)] ring-1 ring-black/[0.04] transition hover:scale-[1.04] hover:bg-white"
+          style={{
+            background: "rgba(255, 255, 255, 0.92)",
+            backdropFilter: "blur(24px) saturate(180%)",
+            WebkitBackdropFilter: "blur(24px) saturate(180%)",
+          }}
+        >
+          <Bot className="h-6 w-6" />
+        </Button>
+      )}
     </div>
   );
 }

@@ -9,7 +9,7 @@ import { AiAssistant } from "@/components/AiAssistant";
 function usePublicSettings() {
   return useQuery<Record<string, string>>({
     queryKey: ["public-site-settings"],
-    queryFn: () => fetch("https://trivinex.onrender.com/api/public/site-settings").then((r) => r.json()),
+    queryFn: () => fetch("/api/public/site-settings").then((r) => r.json()),
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -170,7 +170,12 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.8, y: 8 }}
             transition={{ duration: 0.2 }}
-            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            type="button"
+            onClick={() => {
+              window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+              document.documentElement.scrollTop = 0;
+              document.body.scrollTop = 0;
+            }}
             aria-label="Back to top"
             className="fixed bottom-6 right-20 z-50 flex h-11 w-11 items-center justify-center rounded-full border border-black/[0.08] shadow-lg shadow-black/10"
             style={{
