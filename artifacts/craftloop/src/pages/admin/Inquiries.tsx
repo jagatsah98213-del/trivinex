@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useState } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { ContactActions } from "@/components/ContactActions";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -156,7 +157,10 @@ export default function Inquiries() {
                   <TableRow key={inq.id}>
                     <TableCell>
                       <div className="font-semibold">{inq.name}</div>
-                      <div className="text-sm text-muted-foreground">{inq.email}</div>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-2">
+                        <div className="text-sm text-muted-foreground">{inq.email}</div>
+                        <ContactActions name={inq.name} email={inq.email} phone={inq.phone} />
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="font-semibold">{(inq.serviceNeeded ?? "Not specified").replace(/_/g, " ")}</Badge>

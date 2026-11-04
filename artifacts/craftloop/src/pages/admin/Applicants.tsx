@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { SEOHead } from "@/components/SEOHead";
+import { ContactActions } from "@/components/ContactActions";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All Statuses" },
@@ -177,7 +178,10 @@ export default function AdminApplicants() {
                   <TableRow key={app.id}>
                     <TableCell>
                       <div className="font-semibold">{app.fullName}</div>
-                      <div className="text-sm text-muted-foreground">{app.email}</div>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-2">
+                        <div className="text-sm text-muted-foreground">{app.email}</div>
+                        <ContactActions name={app.fullName} email={app.email} phone={app.phone} />
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="font-semibold">{app.serviceCategory.replace(/_/g, " ")}</Badge>
