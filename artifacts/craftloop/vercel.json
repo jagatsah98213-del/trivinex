@@ -4,7 +4,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://trivinex.onrender.com/api/:path*"
+      "destination": "web-production-e4fee4.up.railway.app/api/:path*"
     },
     {
       "source": "/(.*)",
