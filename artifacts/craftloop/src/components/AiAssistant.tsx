@@ -1,123 +1,213 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, X, Bot } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Bot, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Card, CardContent } from "@/components/ui/card";
-import { customFetch, getBaseUrl } from "@workspace/api-client-react";
+import { customFetch } from "@workspace/api-client-react";
 
 const INITIAL_REPLY =
   "Hi! I'm Trivenix Partners' AI assistant. I can answer questions about our services, how we work, pricing philosophy, and more. What would you like to know?";
 
-export function AiAssistant({ pageContext }: { pageContext?: string }) {
+type ChatMessage = { role: "user" | "assistant"; text: string };
+
+export function AiAssistant({
+  pageContext,
+  onOpenChange,
+}: {
+  pageContext?: string;
+  onOpenChange?: (open: boolean) => void;
+}) {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<{ role: "user" | "assistant"; text: string }[]>([
+  const [messages, setMessages] = useState<ChatMessage[]>([
     { role: "assistant", text: INITIAL_REPLY },
   ]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const scrollEndRef = useRef<HTMLDivElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    onOpenChange?.(isOpen);
+  }, [isOpen, onOpenChange]);
 
-  const baseUrl = getBaseUrl();
+  useEffect(() => {
+    if (!isOpen || !messagesContainerRef.current) return;
+    const container = messagesContainerRef.current;
+    requestAnimationFrame(() => {
+      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+    });
+  }, [isOpen, messages, sending]);
 
-  const sendMessage = useCallback(async () => {
-    if (!input.trim() || sending) return;
-    const userText = input.trim();
-    setInput("");
-    setError(null);
-    setMessages((prev) => [...prev, { role: "user", text: userText }]);
+  const sendMessage = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      const userText = input.trim();
+      if (!userText || sending) return;
 
-    try {
+      setInput("");
+      setError(null);
+      setMessages((previous) => [...previous, { role: "user", text: userText }]);
       setSending(true);
 
-      const apiUrl = baseUrl ? `${baseUrl}/api/public/ai-chat` : "/api/public/ai-chat";
-
-      const data = await customFetch<{ reply: string }>(apiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userText, pageContext }),
-        credentials: "include",
-      });
-      setMessages((prev) => [...prev, { role: "assistant", text: data.reply || "I'm not sure how to answer that. Please contact Trivenix Partners directly." }]);
-    } catch (err: any) {
-      setError("I'm having trouble connecting right now. Please try our contact page instead.");
-      setMessages((prev) => [...prev, { role: "assistant", text: err?.message || "I'm having trouble connecting right now. Please try our contact page instead." }]);
-    } finally {
-      setSending(false);
-    }
-  }, [input, sending, pageContext, error, baseUrl]);
+      try {
+        const data = await customFetch<{ reply: string }>("/api/public/ai-chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: userText, pageContext }),
+          credentials: "include",
+        });
+        setMessages((previous) => [
+          ...previous,
+          {
+            role: "assistant",
+            text:
+              data.reply ||
+              "I'm not sure how to answer that. Please contact Trivenix Partners directly.",
+          },
+        ]);
+      } catch {
+        setError(
+          "I couldn't connect just now. Please try again or contact our team directly.",
+        );
+      } finally {
+        setSending(false);
+      }
+    },
+    [input, sending, pageContext],
+  );
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 w-full sm:w-80 sm:max-w-[400px]">
-      {/* Toggle button */}
-      <Button
-        variant="outline"
-        size="icon"
-        className="w-12 h-12 rounded-full shadow-lg bg-white text-[#1D1D1F] sm:ml-auto"
-        onClick={() => setIsOpen(!isOpen)}
-        aria-label={isOpen ? "Close assistant" : "Open assistant"}
-      >
-        {isOpen ? <X className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
-      </Button>
-
-      {/* Chat panel */}
+    <div
+      className="fixed right-4 z-50 flex w-[min(25rem,calc(100vw-2rem))] flex-col items-end gap-3"
+      style={{ bottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}
+    >
       {isOpen && (
-        <Card className="flex flex-col h-[500px] w-full shadow-2xl border-[#E8E8ED] sm:ml-auto">
-          <CardContent className="p-4 flex flex-col">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-[#1D1D1F]">Trivenix Assistant</h3>
-              <p className="text-xs text-[#6E6E73]">AI · Informational only</p>
+        <section
+          role="dialog"
+          aria-label="Trivenix Assistant"
+          className="flex w-full min-w-0 flex-col overflow-hidden rounded-[1.75rem] border border-white/65 text-[#1D1D1F] shadow-[0_24px_80px_rgba(18,35,70,0.24)] ring-1 ring-black/[0.04]"
+          style={{
+            height:
+              "min(34rem, calc(100dvh - 6.25rem - env(safe-area-inset-bottom, 0px)))",
+            background: "rgba(248, 250, 255, 0.74)",
+            backdropFilter: "blur(30px) saturate(185%)",
+            WebkitBackdropFilter: "blur(30px) saturate(185%)",
+          }}
+        >
+          <header className="flex shrink-0 items-center gap-3 border-b border-white/70 bg-white/35 px-4 py-3.5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-900/15">
+              <Bot className="h-5 w-5" />
             </div>
-            <div className="flex-1 overflow-y-auto mb-3 space-y-3 pr-2">
-              {messages.map((m, i) => (
-                <div key={i} className={`max-w-[85%] p-3 rounded-2xl ${
-                  m.role === "user"
-                    ? "ml-auto bg-blue-600 text-white"
-                    : "mr-auto bg-[#F5F5F7] text-[#1D1D1F]"
-                }`}>
-                  {m.role === "assistant" && (
-                    <div className="flex items-center gap-1 mb-1">
-                      <Bot className="w-3 h-3 text-blue-600" />
-                      <span className="text-xs font-bold text-[#6E6E73] uppercase">Trivenix Assistant</span>
+            <div className="min-w-0 flex-1">
+              <h2 className="truncate text-sm font-bold tracking-tight">
+                Trivenix Assistant
+              </h2>
+              <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-[#667085]">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                AI · Informational only
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 shrink-0 rounded-full text-[#667085] hover:bg-white/70 hover:text-[#1D1D1F]"
+              onClick={() => setIsOpen(false)}
+              aria-label="Close assistant"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </header>
+
+          <div
+            ref={messagesContainerRef}
+            aria-live="polite"
+            className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-5 [scrollbar-width:thin]"
+          >
+            {messages.map((message, index) => (
+              <div
+                key={`${message.role}-${index}`}
+                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                <div
+                  className={`max-w-[88%] break-words rounded-[1.35rem] px-4 py-3 text-sm leading-relaxed shadow-sm ${
+                    message.role === "user"
+                      ? "rounded-br-md bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-blue-900/10"
+                      : "rounded-bl-md border border-white/75 bg-white/65 text-[#252B37]"
+                  }`}
+                >
+                  {message.role === "assistant" && (
+                    <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-blue-600">
+                      <Bot className="h-3 w-3" />
+                      Trivenix Assistant
                     </div>
                   )}
-                  <p className="text-sm leading-relaxed">{m.text}</p>
+                  <p className="whitespace-pre-wrap">{message.text}</p>
                 </div>
-              ))}
-              {sending && (
-                <div className="mr-auto p-3 bg-[#F5F5F7] text-[#1D1D1F] rounded-2xl animate-pulse">
-                  <span className="text-sm">Typing…</span>
+              </div>
+            ))}
+            {sending && (
+              <div className="flex justify-start" aria-label="Assistant is responding">
+                <div className="rounded-[1.35rem] rounded-bl-md border border-white/75 bg-white/65 px-4 py-3 text-sm text-[#667085]">
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500" />
+                    Thinking…
+                  </span>
                 </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-            {error && (
-              <div className="mb-3 p-2 rounded text-xs text-red-700 bg-red-50 border border-red-100">{error}</div>
+              </div>
             )}
-            <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} className="flex gap-2">
+          </div>
+
+          <div className="shrink-0 border-t border-white/70 bg-white/35 p-3">
+            {error && (
+              <p className="mb-2 px-1 text-xs leading-relaxed text-red-700" role="alert">
+                {error}
+              </p>
+            )}
+            <form onSubmit={sendMessage} className="flex min-w-0 items-center gap-2">
               <Input
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask about services, pricing, how we work…"
+                onChange={(event) => setInput(event.target.value)}
+                placeholder="Ask about our services…"
+                aria-label="Message the Trivenix assistant"
+                autoComplete="off"
+                enterKeyHint="send"
                 disabled={sending}
-                className="flex-1"
+                className="h-11 min-w-0 flex-1 rounded-2xl border-white/80 bg-white/75 px-4 text-base shadow-sm placeholder:text-[#8A91A0] focus-visible:ring-blue-500"
               />
-              <Button type="submit" disabled={sending || !input.trim()} size="sm" className="h-9 px-3">
-                <Send className="w-4 h-4" />
+              <Button
+                type="submit"
+                size="icon"
+                disabled={sending || !input.trim()}
+                aria-label="Send message"
+                className="h-11 w-11 shrink-0 rounded-2xl bg-[#2563EB] text-white shadow-md shadow-blue-900/15 transition hover:bg-[#1D4ED8] disabled:opacity-45"
+              >
+                <Send className="h-4 w-4" />
               </Button>
             </form>
-            <div ref={scrollEndRef} />
-          </CardContent>
-        </Card>
+            <p className="mt-2 text-center text-[10px] text-[#778092]">
+              Please don&apos;t share sensitive information.
+            </p>
+          </div>
+        </section>
       )}
+
+      <Button
+        type="button"
+        size="icon"
+        aria-label={isOpen ? "Close assistant" : "Open assistant"}
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen((open) => !open)}
+        className="h-14 w-14 rounded-full border border-white/60 text-white shadow-[0_8px_28px_rgba(26,52,100,0.32)] ring-1 ring-black/[0.04] transition hover:scale-[1.04]"
+        style={{
+          background: "rgba(43, 91, 214, 0.88)",
+          backdropFilter: "blur(24px) saturate(180%)",
+          WebkitBackdropFilter: "blur(24px) saturate(180%)",
+        }}
+      >
+        {isOpen ? <X className="h-5 w-5" /> : <Bot className="h-6 w-6" />}
+      </Button>
     </div>
   );
 }

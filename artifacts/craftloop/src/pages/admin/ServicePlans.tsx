@@ -1,10 +1,10 @@
 import { useState } from "react";
 import {
-  useListAdminServicePlans,
+  useListAdminServices,
   useCreateAdminServicePlan,
   useUpdateAdminServicePlan,
   useDeleteAdminServicePlan,
-  getListAdminServicePlansQueryKey,
+  getListAdminServicesQueryKey,
 } from "@workspace/api-client-react";
 import {
   PlanBadge,
@@ -63,10 +63,22 @@ const BADGE_LABELS: Record<string, string> = {
 export default function AdminServicePlans() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [serviceId, setServiceId] = useState<number | null>(null);
-  const { data: plans, isLoading } = serviceId != null
-    ? useListAdminServicePlans({ serviceId })
-    : { data: [], isLoading: false };
+  const [selectedServiceId, setSelectedServiceId] = useState("all");
+  const { data: services = [], isLoading, isError } = useListAdminServices();
+  const allPlans = services.flatMap((service) =>
+    (service.plans ?? []).map((plan) => ({
+      ...plan,
+      serviceName: service.title,
+    })),
+  );
+  const plans =
+    selectedServiceId === "all"
+      ? allPlans
+      : allPlans.filter((plan) => plan.serviceId === Number(selectedServiceId));
+  const selectedService =
+    selectedServiceId === "all"
+      ? undefined
+      : services.find((service) => service.id === Number(selectedServiceId));
   const createPlan = useCreateAdminServicePlan();
   const updatePlan = useUpdateAdminServicePlan();
   const deletePlan = useDeleteAdminServicePlan();
@@ -95,10 +107,12 @@ export default function AdminServicePlans() {
       { data: values },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListAdminServicePlansQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListAdminServicesQueryKey() });
           toast({ title: "Plan created" });
           setOpen(false);
         },
+        onError: (error) =>
+          toast({ variant: "destructive", title: "Could not create plan", description: error.message }),
       },
     );
   };
@@ -108,10 +122,12 @@ export default function AdminServicePlans() {
       { id, data: values },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListAdminServicePlansQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListAdminServicesQueryKey() });
           toast({ title: "Plan updated" });
           setOpen(false);
         },
+        onError: (error) =>
+          toast({ variant: "destructive", title: "Could not update plan", description: error.message }),
       },
     );
   };
@@ -122,9 +138,11 @@ export default function AdminServicePlans() {
       { id },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListAdminServicePlansQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListAdminServicesQueryKey() });
           toast({ title: "Plan deleted" });
         },
+        onError: (error) =>
+          toast({ variant: "destructive", title: "Could not delete plan", description: error.message }),
       },
     );
   };
@@ -134,8 +152,10 @@ export default function AdminServicePlans() {
       { id, data: { isActive } },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListAdminServicePlansQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListAdminServicesQueryKey() });
         },
+        onError: (error) =>
+          toast({ variant: "destructive", title: "Could not update plan", description: error.message }),
       },
     );
   };
@@ -156,26 +176,60 @@ export default function AdminServicePlans() {
         <div className="flex items-center gap-4 mb-6">
           <label className="text-sm font-medium text-[#6E6E73]">Service:</label>
           <Select
-            onValueChange={(v) => setServiceId(Number(v))}
-            value={serviceId ? String(serviceId) : ""}
+            onValueChange={setSelectedServiceId}
+            value={selectedServiceId}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select a service…" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All services</SelectItem>
+              <SelectItem value="all">All services</SelectItem>
+              {services.map((service) => (
+                <SelectItem key={service.id} value={String(service.id)}>
+                  {service.title}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
 
-        {serviceId === null ? (
-          <p className="text-[#6E6E73] text-sm">Select a service to manage its plans.</p>
+        {isError ? (
+          <p className="text-sm text-destructive">
+            Could not load services and plans. Refresh the page to try again.
+          </p>
+        ) : services.length === 0 ? (
+          <p className="text-[#6E6E73] text-sm">
+            No services are available yet. Create a service before adding plans.
+          </p>
         ) : (
           <>
             <div className="flex items-center justify-between mb-4">
-              <Button variant="outline" onClick={() => { setEditing(null); form.reset({ serviceId }); setOpen(true); }}>
-                <Plus className="w-4 h-4 mr-2" /> Add Plan
-              </Button>
+              {selectedService ? (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setEditing(null);
+                    form.reset({
+                      serviceId: selectedService.id,
+                      name: "",
+                      description: "",
+                      pricingType: PricingType.ONE_TIME,
+                      priceLabel: "",
+                      startingPrice: "",
+                      badge: PlanBadge.NONE,
+                      isActive: true,
+                      sortOrder: 0,
+                    });
+                    setOpen(true);
+                  }}
+                >
+                  <Plus className="w-4 h-4 mr-2" /> Add Plan
+                </Button>
+              ) : (
+                <p className="text-sm text-[#6E6E73]">
+                  Select a service above to add a plan.
+                </p>
+              )}
             </div>
 
             <Table>
@@ -194,7 +248,14 @@ export default function AdminServicePlans() {
                 {(plans ?? []).map((p) => (
                   <TableRow key={p.id}>
                     <TableCell className="font-medium">{p.name}</TableCell>
-                    <TableCell className="text-sm text-[#6E6E73] line-clamp-1">{p.description}</TableCell>
+                    <TableCell className="text-sm text-[#6E6E73]">
+                      <span className="block">{p.description}</span>
+                      {selectedServiceId === "all" && (
+                        <span className="mt-1 block text-xs text-[#6E6E73]/80">
+                          {p.serviceName}
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-sm">{PRICING_LABELS[p.pricingType] || p.pricingType}</TableCell>
                     <TableCell className="text-sm text-[#6E6E73]">{p.priceLabel || "Request a quote"}</TableCell>
                     <TableCell className="text-sm">
@@ -231,6 +292,13 @@ export default function AdminServicePlans() {
                     </TableCell>
                   </TableRow>
                 ))}
+                {plans.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-8 text-center text-sm text-[#6E6E73]">
+                      {isLoading ? "Loading plans…" : "No plans found for this service."}
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </>

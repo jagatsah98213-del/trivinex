@@ -19,6 +19,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [showTop, setShowTop] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
   const { data: settings = {} } = usePublicSettings();
 
   const phone = settings.contact_phone || "";
@@ -163,7 +164,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
 
       {/* ─── Scroll to top ─── */}
       <AnimatePresence>
-        {showTop && (
+        {showTop && !assistantOpen && (
           <motion.button
             initial={{ opacity: 0, scale: 0.8, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -171,7 +172,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
             transition={{ duration: 0.2 }}
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
             aria-label="Back to top"
-            className="fixed bottom-6 right-6 z-50 w-11 h-11 rounded-full flex items-center justify-center shadow-lg shadow-black/10 border border-black/[0.08]"
+            className="fixed bottom-6 right-20 z-50 flex h-11 w-11 items-center justify-center rounded-full border border-black/[0.08] shadow-lg shadow-black/10"
             style={{
               background: "rgba(255,255,255,0.72)",
               backdropFilter: "blur(24px) saturate(180%)",
@@ -310,7 +311,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
         </div>
       </footer>
 
-      <AiAssistant pageContext={location} />
+      <AiAssistant pageContext={location} onOpenChange={setAssistantOpen} />
     </div>
   );
 }

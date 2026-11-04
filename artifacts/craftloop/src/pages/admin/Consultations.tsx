@@ -7,10 +7,11 @@ import {
   useUpdateAdminMeetingBooking,
   getListAdminMeetingSlotsQueryKey,
   getListAdminMeetingBookingsQueryKey,
+  customFetch,
 } from "@workspace/api-client-react";
 import {
   Loader2, CalendarPlus, Check, X, Clock, Plus, Trash2,
-  CalendarRange, RefreshCw, Settings2, CalendarCheck2,
+  CalendarRange, RefreshCw, Settings2, CalendarCheck2, Eye, Mail, MessageCircle, Phone,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -24,6 +25,10 @@ import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface ScheduleRule {
@@ -77,6 +82,8 @@ export default function Consultations() {
   const { data: bookings, isLoading: loadingBookings } = useListAdminMeetingBookings();
   const { data: slots, isLoading: loadingSlots } = useListAdminMeetingSlots();
   const createSlot = useCreateAdminMeetingSlot();
+  const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
+  const [deleteBookingId, setDeleteBookingId] = useState<number | null>(null);
 
   const deleteSlotMutation = useMutation({
     mutationFn: (id: number) =>
@@ -92,6 +99,24 @@ export default function Consultations() {
   const updateBooking = useUpdateAdminMeetingBooking();
   const qc = useQueryClient();
   const { toast } = useToast();
+  const selectedBooking = bookings?.find((booking) => booking.id === selectedBookingId);
+  const bookingPendingDelete = bookings?.find((booking) => booking.id === deleteBookingId);
+
+  const deleteBooking = useMutation({
+    mutationFn: (id: number) =>
+      customFetch<void>(`/api/admin/meeting-bookings/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: getListAdminMeetingBookingsQueryKey() });
+      qc.invalidateQueries({ queryKey: getListAdminMeetingSlotsQueryKey() });
+      setDeleteBookingId(null);
+      toast({ title: "Booking deleted" });
+    },
+    onError: (error: Error) =>
+      toast({ variant: "destructive", title: "Could not delete booking", description: error.message }),
+  });
 
   // ── Schedule rules state ────────────────────────────────────────────────────
   const { data: rules = [], isLoading: loadingRules } = useQuery<ScheduleRule[]>({
@@ -378,7 +403,19 @@ export default function Consultations() {
                       <TableRow key={b.id}>
                         <TableCell>
                           <div className="font-semibold">{b.clientName}</div>
-                          <div className="text-sm text-muted-foreground">{b.clientEmail}</div>
+                          <a
+                            href={`mailto:${b.clientEmail}`}
+                            className="block text-sm text-primary hover:underline"
+                          >
+                            {b.clientEmail}
+                          </a>
+                          <a
+                            href={`tel:${b.clientPhone}`}
+                            className="mt-1 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+                          >
+                            <Phone className="h-3 w-3" />
+                            {b.clientPhone}
+                          </a>
                         </TableCell>
                         <TableCell>
                           {b.slot && (
@@ -397,16 +434,68 @@ export default function Consultations() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          {b.status === "pending" && (
-                            <div className="flex justify-end gap-2">
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              aria-label={`View ${b.clientName}'s booking details`}
+                              title="View booking details"
+                              onClick={() => setSelectedBookingId(b.id)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              asChild
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              aria-label={`Email ${b.clientName}`}
+                              title="Email client"
+                            >
+                              <a href={`mailto:${b.clientEmail}`}>
+                                <Mail className="h-4 w-4" />
+                              </a>
+                            </Button>
+                            <Button
+                              asChild
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              aria-label={`Message ${b.clientName} on WhatsApp`}
+                              title="Message on WhatsApp"
+                              disabled={!b.clientPhone.replace(/\D/g, "")}
+                            >
+                              <a
+                                href={`https://wa.me/${b.clientPhone.replace(/\D/g, "")}?text=${encodeURIComponent(`Hi ${b.clientName}, I'm reaching out about your consultation with Trivenix Partners.`)}`}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                <MessageCircle className="h-4 w-4 text-green-600" />
+                              </a>
+                            </Button>
+                            {b.status === "pending" && (
+                              <>
                               <Button variant="ghost" size="sm" onClick={() => handleUpdateBooking(b.id, "confirmed")}>
                                 <Check className="w-4 h-4 text-green-500" />
                               </Button>
                               <Button variant="ghost" size="sm" onClick={() => handleUpdateBooking(b.id, "cancelled")}>
                                 <X className="w-4 h-4 text-destructive" />
                               </Button>
-                            </div>
-                          )}
+                              </>
+                            )}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              aria-label={`Delete ${b.clientName}'s booking`}
+                              title="Delete booking"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => setDeleteBookingId(b.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -422,6 +511,128 @@ export default function Consultations() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog
+        open={selectedBookingId !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedBookingId(null);
+        }}
+      >
+        <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Consultation booking</DialogTitle>
+            <DialogDescription>Client details and booking information.</DialogDescription>
+          </DialogHeader>
+          {selectedBooking && (
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Client</p>
+                <p className="mt-1 font-semibold">{selectedBooking.clientName}</p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Email</p>
+                  <a href={`mailto:${selectedBooking.clientEmail}`} className="mt-1 block break-all text-primary hover:underline">
+                    {selectedBooking.clientEmail}
+                  </a>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Phone</p>
+                  <a href={`tel:${selectedBooking.clientPhone}`} className="mt-1 block text-primary hover:underline">
+                    {selectedBooking.clientPhone}
+                  </a>
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Date</p>
+                  <p className="mt-1">
+                    {selectedBooking.slot
+                      ? format(new Date(selectedBooking.slot.date), "MMM d, yyyy")
+                      : "Not available"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Time</p>
+                  <p className="mt-1">{selectedBooking.slot?.startTime ?? "Not available"}</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</p>
+                <p className="mt-1 capitalize">{selectedBooking.status}</p>
+              </div>
+              {selectedBooking.notes && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notes</p>
+                  <p className="mt-1 whitespace-pre-wrap rounded-lg bg-muted/50 p-3 text-sm">
+                    {selectedBooking.notes}
+                  </p>
+                </div>
+              )}
+              {selectedBooking.slot?.meetLink && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Meeting link</p>
+                  <a
+                    href={selectedBooking.slot.meetLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-1 block break-all text-primary hover:underline"
+                  >
+                    {selectedBooking.slot.meetLink}
+                  </a>
+                </div>
+              )}
+              <div className="flex flex-wrap justify-end gap-2 border-t pt-4">
+                <Button asChild variant="outline">
+                  <a href={`mailto:${selectedBooking.clientEmail}`}>
+                    <Mail className="mr-2 h-4 w-4" /> Email client
+                  </a>
+                </Button>
+                <Button asChild className="bg-green-600 text-white hover:bg-green-700">
+                  <a
+                    href={`https://wa.me/${selectedBooking.clientPhone.replace(/\D/g, "")}?text=${encodeURIComponent(`Hi ${selectedBooking.clientName}, I'm reaching out about your consultation with Trivenix Partners.`)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <MessageCircle className="mr-2 h-4 w-4" /> WhatsApp
+                  </a>
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={deleteBookingId !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleteBooking.isPending) setDeleteBookingId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this booking?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes the consultation booking
+              {bookingPendingDelete ? ` for ${bookingPendingDelete.clientName}` : ""} and its details.
+              This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteBooking.isPending}>Keep booking</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteBooking.isPending}
+              onClick={(event) => {
+                event.preventDefault();
+                if (deleteBookingId !== null) deleteBooking.mutate(deleteBookingId);
+              }}
+            >
+              {deleteBooking.isPending ? "Deleting…" : "Delete booking"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ── Add rule dialog ──────────────────────────────────────────────────── */}
       <Dialog open={addRuleDay !== null} onOpenChange={(o) => { if (!o) setAddRuleDay(null); }}>

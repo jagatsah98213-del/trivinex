@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { rateLimit } from "express-rate-limit";
-import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, ne, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
   db,
@@ -25,6 +25,9 @@ import {
   UpdateAdminInquiryParams,
   UpdateAdminInquiryBody,
   UpdateAdminInquiryResponse,
+  ConvertInquiryToProjectParams,
+  ConvertInquiryToProjectBody,
+  ConvertInquiryToProjectResponse,
   ListAdminMeetingSlotsResponse,
   CreateAdminMeetingSlotBody,
   CreateAdminMeetingSlotResponse,
@@ -271,6 +274,95 @@ router.get("/admin/inquiries", async (_req, res) => {
   res.json(ListAdminInquiriesResponse.parse(rows));
 });
 
+router.post("/admin/inquiries/:id/convert-to-project", async (req, res) => {
+  const { id } = ConvertInquiryToProjectParams.parse(req.params);
+  const body = ConvertInquiryToProjectBody.parse(req.body);
+
+  const result = await db.transaction(async (tx) => {
+    const [inquiry] = await tx
+      .select()
+      .from(clientInquiriesTable)
+      .where(eq(clientInquiriesTable.id, id))
+      .for("update");
+
+    if (!inquiry) return { kind: "not-found" as const };
+
+    const [existingProject] = await tx
+      .select()
+      .from(projectsTable)
+      .where(eq(projectsTable.inquiryId, id))
+      .limit(1);
+
+    if (existingProject) {
+      return { kind: "existing" as const, project: existingProject };
+    }
+    if (inquiry.status !== "new") {
+      return { kind: "already-processed" as const };
+    }
+
+    let serviceCategory = body.serviceCategory ?? inquiry.serviceNeeded ?? undefined;
+    if (!serviceCategory && inquiry.servicePlanId) {
+      const [plan] = await tx
+        .select({ serviceId: servicePlansTable.serviceId })
+        .from(servicePlansTable)
+        .where(eq(servicePlansTable.id, inquiry.servicePlanId));
+      if (plan) {
+        const [service] = await tx
+          .select({ category: servicesTable.category })
+          .from(servicesTable)
+          .where(eq(servicesTable.id, plan.serviceId));
+        serviceCategory = service?.category;
+      }
+    }
+    if (!serviceCategory) return { kind: "service-required" as const };
+
+    const [project] = await tx
+      .insert(projectsTable)
+      .values({
+        inquiryId: inquiry.id,
+        clientName: inquiry.name,
+        clientEmail: inquiry.email,
+        clientPhone: inquiry.phone,
+        serviceCategory,
+        title: body.title,
+        description: body.description?.trim() || inquiry.projectDetails,
+        deadline: body.deadline,
+        status: "in_progress",
+      })
+      .returning();
+
+    await tx
+      .update(clientInquiriesTable)
+      .set({ status: "contacted" })
+      .where(eq(clientInquiriesTable.id, inquiry.id));
+
+    return { kind: "created" as const, project };
+  });
+
+  if (result.kind === "not-found") {
+    res.status(404).json({ message: "Inquiry not found" });
+    return;
+  }
+  if (result.kind === "already-processed") {
+    res.status(409).json({ message: "This inquiry has already been processed" });
+    return;
+  }
+  if (result.kind === "service-required") {
+    res.status(400).json({ message: "Select a service category before converting this inquiry" });
+    return;
+  }
+  if (result.kind === "created") {
+    await recordAuditLog(String(req.session.userId), "inquiry.convert", {
+      inquiryId: id,
+      projectId: result.project.id,
+    });
+  }
+
+  res
+    .status(result.kind === "created" ? 201 : 200)
+    .json(ConvertInquiryToProjectResponse.parse(result.project));
+});
+
 router.patch("/admin/inquiries/:id", async (req, res) => {
   const params = UpdateAdminInquiryParams.parse(req.params);
   const body = UpdateAdminInquiryBody.parse(req.body);
@@ -353,17 +445,106 @@ router.get("/admin/meeting-bookings", async (_req, res) => {
 router.patch("/admin/meeting-bookings/:id", async (req, res) => {
   const params = UpdateAdminMeetingBookingParams.parse(req.params);
   const body = UpdateAdminMeetingBookingBody.parse(req.body);
-  const [updated] = await db
-    .update(meetingBookingsTable)
-    .set(body)
-    .where(eq(meetingBookingsTable.id, params.id))
-    .returning();
-  if (!updated) {
+  const result = await db.transaction(async (tx) => {
+    const [current] = await tx
+      .select()
+      .from(meetingBookingsTable)
+      .where(eq(meetingBookingsTable.id, params.id))
+      .for("update");
+    if (!current) return null;
+
+    const [slot] = await tx
+      .select()
+      .from(slotsTable)
+      .where(eq(slotsTable.id, current.slotId))
+      .for("update");
+
+    const [updated] = await tx
+      .update(meetingBookingsTable)
+      .set(body)
+      .where(eq(meetingBookingsTable.id, params.id))
+      .returning();
+    if (slot) {
+      const activeBookings = await tx
+        .select({ id: meetingBookingsTable.id })
+        .from(meetingBookingsTable)
+        .where(
+          and(
+            eq(meetingBookingsTable.slotId, slot.id),
+            ne(meetingBookingsTable.status, "cancelled"),
+          ),
+        );
+      await tx
+        .update(slotsTable)
+        .set({ booked: activeBookings.length })
+        .where(eq(slotsTable.id, slot.id));
+    }
+    const [refreshedSlot] = await tx
+      .select()
+      .from(slotsTable)
+      .where(eq(slotsTable.id, updated.slotId));
+    return { updated, slot: refreshedSlot };
+  });
+
+  if (!result) {
     res.status(404).json({ message: "Booking not found" });
     return;
   }
-  const [slot] = await db.select().from(slotsTable).where(eq(slotsTable.id, updated.slotId));
-  res.json(UpdateAdminMeetingBookingResponse.parse({ ...updated, slot }));
+  res.json(
+    UpdateAdminMeetingBookingResponse.parse({
+      ...result.updated,
+      slot: result.slot,
+    }),
+  );
+});
+
+router.delete("/admin/meeting-bookings/:id", async (req, res) => {
+  const { id } = z.object({ id: z.coerce.number().int().positive() }).parse(req.params);
+  const deleted = await db.transaction(async (tx) => {
+    const [booking] = await tx
+      .select()
+      .from(meetingBookingsTable)
+      .where(eq(meetingBookingsTable.id, id))
+      .for("update");
+    if (!booking) return null;
+
+    await tx
+      .select()
+      .from(slotsTable)
+      .where(eq(slotsTable.id, booking.slotId))
+      .for("update");
+
+    await tx.delete(meetingBookingsTable).where(eq(meetingBookingsTable.id, id));
+    const [slot] = await tx
+      .select()
+      .from(slotsTable)
+      .where(eq(slotsTable.id, booking.slotId));
+    if (slot) {
+      const activeBookings = await tx
+        .select({ id: meetingBookingsTable.id })
+        .from(meetingBookingsTable)
+        .where(
+          and(
+            eq(meetingBookingsTable.slotId, slot.id),
+            ne(meetingBookingsTable.status, "cancelled"),
+          ),
+        );
+      await tx
+        .update(slotsTable)
+        .set({ booked: activeBookings.length })
+        .where(eq(slotsTable.id, slot.id));
+    }
+    return booking;
+  });
+
+  if (!deleted) {
+    res.status(404).json({ message: "Booking not found" });
+    return;
+  }
+  await recordAuditLog(String(req.session.userId), "meeting-booking.delete", {
+    bookingId: id,
+  });
+  res.status(204).end();
 });
 
 // ---------- Projects (internal only) ----------

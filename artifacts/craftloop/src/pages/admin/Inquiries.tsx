@@ -2,6 +2,7 @@ import {
   useListAdminInquiries, useListAdminServices, useConvertInquiryToProject,
   getListAdminInquiriesQueryKey, useUpdateAdminInquiry, useDeleteAdminInquiry,
 } from "@workspace/api-client-react";
+import { ServiceCategory } from "@workspace/api-client-react/api.schemas";
 import { Loader2, Plus, Eye, CheckCircle, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -15,12 +16,14 @@ import { useState } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
 const convertSchema = z.object({
   title: z.string().min(2, "Title is required"),
+  serviceCategory: z.nativeEnum(ServiceCategory).optional(),
   description: z.string().optional(),
   deadline: z.string().optional(),
 });
@@ -47,7 +50,7 @@ export default function Inquiries() {
 
   const form = useForm<z.infer<typeof convertSchema>>({
     resolver: zodResolver(convertSchema),
-    defaultValues: { title: "", description: "", deadline: "" }
+    defaultValues: { title: "", serviceCategory: undefined, description: "", deadline: "" }
   });
 
   const handleOpenConvert = (id: number) => {
@@ -56,6 +59,11 @@ export default function Inquiries() {
     if (inq) {
       form.reset({
         title: `${(inq.serviceNeeded ?? "General").replace(/_/g, " ")} Project for ${inq.name}`,
+        serviceCategory:
+          inq.serviceNeeded ??
+          services?.find((service) =>
+            service.plans?.some((plan) => plan.id === inq.servicePlanId),
+          )?.category,
         description: inq.projectDetails,
         deadline: ""
       });
@@ -66,7 +74,29 @@ export default function Inquiries() {
 
   const handleConvert = (values: z.infer<typeof convertSchema>) => {
     if (!selectedInquiry) return;
-    convertToProject.mutate({ id: selectedInquiry, data: values }, {
+    const serviceCategory =
+      values.serviceCategory ??
+      inquiry?.serviceNeeded ??
+      services?.find((service) =>
+        service.plans?.some((plan) => plan.id === inquiry?.servicePlanId),
+      )?.category;
+    if (!serviceCategory) {
+      toast({
+        variant: "destructive",
+        title: "Choose a service category",
+        description: "Select the service this project belongs to before converting.",
+      });
+      return;
+    }
+    const { deadline, ...projectDetails } = values;
+    convertToProject.mutate({
+      id: selectedInquiry,
+      data: {
+        ...projectDetails,
+        serviceCategory,
+        ...(deadline?.trim() ? { deadline } : {}),
+      },
+    }, {
       onSuccess: () => {
         setConvertDialogOpen(false);
         queryClient.invalidateQueries({ queryKey: getListAdminInquiriesQueryKey() });
@@ -237,6 +267,26 @@ export default function Inquiries() {
                 <FormItem>
                   <FormLabel>Project Title</FormLabel>
                   <FormControl><Input {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="serviceCategory" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Service Category</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose a service category" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {Object.values(ServiceCategory).map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category.replace(/_/g, " ")}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )} />
